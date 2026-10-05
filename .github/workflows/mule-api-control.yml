@@ -32,9 +32,12 @@ on:
         required: false
         type: string
       confirm:
-        description: "Type CONFIRM to execute. Required for every start/stop operation."
+        description: "Confirmation — select the same operation you want to execute"
         required: true
-        type: string
+        type: choice
+        options:
+          - start
+          - stop
 
 permissions:
   contents: read
@@ -48,9 +51,6 @@ jobs:
     name: "${{ inputs.action }} APIs in ${{ inputs.environment }}"
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
-    # Create GitHub Environments with the same names as the inputs.
-    # Add production reviewers to the prod Environment for an approval gate.
     environment: ${{ inputs.environment }}
 
     env:
@@ -69,8 +69,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "$CONFIRMATION" != "CONFIRM" ]; then
-            echo "::error::Execution cancelled. The confirm field must contain exactly CONFIRM."
+          if [ "$CONFIRMATION" != "$ACTION" ]; then
+            echo "::error::Confirmation does not match the selected action."
+            echo "::error::Action=$ACTION, Confirmation=$CONFIRMATION"
             exit 1
           fi
 
@@ -89,6 +90,7 @@ jobs:
           echo "Environment: $ANYPOINT_ENVIRONMENT"
           echo "Action: $ACTION"
           echo "Scope: $SCOPE"
+          echo "Confirmation: $CONFIRMATION"
 
       - name: Install Anypoint CLI
         run: |
@@ -102,11 +104,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # CloudHub 2 applications are controlled by application ID.
-          # MuleSoft documents application:list for discovery and
-          # application:start/application:stop for control.
           all_apps="$(anypoint-cli-v4 runtime-mgr:application:list --output json)"
-
           printf '%s' "$all_apps" > all-apps.json
 
           python3 - <<'PY' > applications.txt
@@ -117,7 +115,6 @@ jobs:
 
           requested = os.environ.get("REQUESTED_APPLICATION", "").strip()
           scope = os.environ["SCOPE"]
-
           found = []
 
           def walk(value):
