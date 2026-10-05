@@ -107,10 +107,13 @@ jobs:
           # application:start/application:stop for control.
           all_apps="$(anypoint-cli-v4 runtime-mgr:application:list --output json)"
 
+          printf '%s' "$all_apps" > all-apps.json
+
           python3 - <<'PY' > applications.txt
           import json, os, sys
 
-          data = json.loads(os.environ["ALL_APPS"])
+          with open("all-apps.json", encoding="utf-8") as f:
+              data = json.load(f)
 
           requested = os.environ.get("REQUESTED_APPLICATION", "").strip()
           scope = os.environ["SCOPE"]
@@ -149,8 +152,6 @@ jobs:
           for name, app_id, status in sorted(matches):
               print(f"{name}|{app_id}|{status}")
           PY
-        env:
-          ALL_APPS: "$all_apps"
 
       - name: Show execution plan
         shell: bash
