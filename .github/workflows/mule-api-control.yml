@@ -1,0 +1,264 @@
+name: MuleSoft API Start / Stop Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Operation"
+        required: true
+        type: choice
+        options:
+          - start
+          - stop
+      scope:
+        description: "What should be affected?"
+        required: true
+        type: choice
+        options:
+          - application
+          - bulk
+      environment:
+        description: "GitHub Environment / Anypoint environment to control"
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - uat
+          - sandbox
+          - prod
+      application:
+        description: "Application name for application scope. Leave blank for bulk."
+        required: false
+        type: string
+      confirm:
+        description: "Type CONFIRM to execute. Required for every start/stop operation."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mule-api-control-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  control:
+    name: "${{ inputs.action }} APIs in ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Create GitHub Environments with the same names as the inputs.
+    # Add production reviewers to the prod Environment for an approval gate.
+    environment: ${{ inputs.environment }}
+
+    env:
+      ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+      ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+      ANYPOINT_ORG_ID: ${{ secrets.ANYPOINT_ORG_ID }}
+      ANYPOINT_ENVIRONMENT: ${{ secrets.CLOUDHUB_ENVIRONMENT }}
+      ACTION: ${{ inputs.action }}
+      SCOPE: ${{ inputs.scope }}
+      REQUESTED_APPLICATION: ${{ inputs.application }}
+      CONFIRMATION: ${{ inputs.confirm }}
+
+    steps:
+      - name: Validate request
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$CONFIRMATION" != "CONFIRM" ]; then
+            echo "::error::Execution cancelled. The confirm field must contain exactly CONFIRM."
+            exit 1
+          fi
+
+          for name in ANYPOINT_CLIENT_ID ANYPOINT_CLIENT_SECRET ANYPOINT_ORG_ID ANYPOINT_ENVIRONMENT; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing GitHub Environment secret: $name"
+              exit 1
+            fi
+          done
+
+          if [ "$SCOPE" = "application" ] && [ -z "$REQUESTED_APPLICATION" ]; then
+            echo "::error::Application name is required when scope=application."
+            exit 1
+          fi
+
+          echo "Environment: $ANYPOINT_ENVIRONMENT"
+          echo "Action: $ACTION"
+          echo "Scope: $SCOPE"
+
+      - name: Install Anypoint CLI
+        run: |
+          set -euo pipefail
+          npm install -g anypoint-cli-v4-public
+          anypoint-cli-v4 --version
+
+      - name: Resolve target applications
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # CloudHub 2 applications are controlled by application ID.
+          # MuleSoft documents application:list for discovery and
+          # application:start/application:stop for control.
+          all_apps="$(anypoint-cli-v4 runtime-mgr:application:list --output json)"
+
+          python3 - <<'PY' > applications.txt
+          import json, os, sys
+
+          data = json.loads(os.environ["ALL_APPS"])
+
+          requested = os.environ.get("REQUESTED_APPLICATION", "").strip()
+          scope = os.environ["SCOPE"]
+
+          found = []
+
+          def walk(value):
+              if isinstance(value, dict):
+                  yield value
+                  for v in value.values():
+                      yield from walk(v)
+              elif isinstance(value, list):
+                  for v in value:
+                      yield from walk(v)
+
+          for obj in walk(data):
+              app_id = obj.get("id")
+              name = obj.get("name") or obj.get("applicationName")
+              status = obj.get("status") or obj.get("applicationStatus")
+
+              if not app_id or not name:
+                  continue
+
+              item = (str(name), str(app_id), str(status or "UNKNOWN"))
+              if item not in found:
+                  found.append(item)
+
+          if scope == "application":
+              matches = [x for x in found if x[0] == requested or x[1] == requested]
+              if not matches:
+                  print(f"Requested application was not found: {requested}", file=sys.stderr)
+                  sys.exit(2)
+          else:
+              matches = found
+
+          for name, app_id, status in sorted(matches):
+              print(f"{name}|{app_id}|{status}")
+          PY
+        env:
+          ALL_APPS: "$all_apps"
+
+      - name: Show execution plan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -s applications.txt ]; then
+            echo "::error::No applications found in the selected Anypoint environment."
+            exit 1
+          fi
+
+          echo "## MuleSoft API Control Plan" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Application | ID | Current status | Requested action |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          while IFS="|" read -r name app_id status; do
+            echo "| $name | $app_id | $status | $ACTION |" >> "$GITHUB_STEP_SUMMARY"
+          done < applications.txt
+
+      - name: Stop selected applications
+        if: inputs.action == 'stop'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS="|" read -r name app_id status; do
+            case "${status^^}" in
+              RUNNING|STARTED|DEPLOYED|APPLIED)
+                echo "Stopping: $name ($app_id)"
+                anypoint-cli-v4 runtime-mgr:application:stop "$app_id"
+                ;;
+              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING)
+                echo "Already stopped/not running: $name ($app_id)"
+                ;;
+              *)
+                echo "::warning::Unknown status for $name: $status. Skipping."
+                ;;
+            esac
+          done < applications.txt
+
+      - name: Start selected applications
+        if: inputs.action == 'start'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS="|" read -r name app_id status; do
+            case "${status^^}" in
+              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING)
+                echo "Starting: $name ($app_id)"
+                anypoint-cli-v4 runtime-mgr:application:start "$app_id"
+                ;;
+              RUNNING|STARTED|DEPLOYED|APPLIED)
+                echo "Already running: $name ($app_id)"
+                ;;
+              *)
+                echo "::warning::Unknown status for $name: $status. Skipping."
+                ;;
+            esac
+          done < applications.txt
+
+      - name: Verify final state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          expected="$ACTION"
+          max_attempts=12
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Verification attempt $attempt/$max_attempts"
+            failed=0
+
+            while IFS="|" read -r name app_id old_status; do
+              raw="$(anypoint-cli-v4 runtime-mgr:application:describe "$app_id" --output json 2>/dev/null || true)"
+
+              if [ -z "$raw" ]; then
+                echo "::error::Could not read status for $name ($app_id)"
+                failed=1
+                continue
+              fi
+
+              status="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("status") or d.get("Status") or d.get("application",{}).get("status") or "UNKNOWN").upper())' <<< "$raw" 2>/dev/null || echo UNKNOWN)"
+
+              echo "$name => $status"
+
+              if [ "$expected" = "start" ]; then
+                case "$status" in
+                  RUNNING|STARTED|DEPLOYED|APPLIED) ;;
+                  *) failed=1 ;;
+                esac
+              else
+                case "$status" in
+                  STOPPED|DOWN|UNDEPLOYED|NOT_RUNNING) ;;
+                  *) failed=1 ;;
+                esac
+              fi
+            done < applications.txt
+
+            if [ "$failed" -eq 0 ]; then
+              echo "## Result: SUCCESS" >> "$GITHUB_STEP_SUMMARY"
+              echo "All selected applications reached the requested state."
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "::error::Not all selected applications reached the requested state."
+          exit 1
