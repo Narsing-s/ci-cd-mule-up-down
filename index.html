@@ -13,55 +13,49 @@
       <div>
         <div class="eyebrow">OPEN SOURCE • BYO CREDENTIALS</div>
         <h1>MuleSoft API Control</h1>
-        <p>Start or stop your CloudHub 2.0 applications from a simple web UI. Your MuleSoft credentials stay in your own GitHub Environment secrets.</p>
+        <p>Control CloudHub 2.0 applications through your own GitHub Actions workflow. Credentials stay under your control.</p>
       </div>
       <a class="source" href="https://github.com/Narsing-s/ci-cd-mule-up-down" target="_blank" rel="noreferrer">View source ↗</a>
     </header>
 
     <section class="notice">
-      <strong>How this works</strong>
-      <span>The UI dispatches the existing GitHub Actions workflow in <em>your</em> repository. It never asks for or stores your MuleSoft client secret.</span>
+      <strong>Credential flow</strong>
+      <span>GitHub token is used only in this browser session to call GitHub. MuleSoft Client ID, Client Secret and Organization ID are read by the runner from the selected GitHub Environment.</span>
     </section>
 
     <section class="grid">
       <div class="card setup">
-        <div class="step"><span>1</span><div><h2>Connect repository</h2><p>Use your fork/copy of this project.</p></div></div>
+        <div class="step"><span>1</span><div><h2>GitHub access</h2><p>Use a repository where the workflow and environment secrets exist.</p></div></div>
         <label>GitHub repository</label>
-        <input id="repo" value="" placeholder="your-org/your-mule-control-repo" autocomplete="off">
+        <input id="repo" value="Narsing-s/ci-cd-mule-up-down" placeholder="owner/repository" autocomplete="off">
         <label>GitHub fine-grained token</label>
-        <input id="token" type="password" placeholder="ghp_… / github_pat_…" autocomplete="off">
-        <p class="hint">Required only in this browser session. It is sent directly to GitHub to dispatch the workflow and is not stored.</p>
-        <button id="connect" class="secondary">Test GitHub access</button>
+        <input id="token" type="password" placeholder="github_pat_…" autocomplete="off">
+        <p class="hint">Session only. Required repository access: <b>Actions → Read and write</b> and <b>Contents → Read-only</b>.</p>
+        <button id="connect" class="secondary">Test GitHub access & workflow permission</button>
         <div id="connection" class="status hidden"></div>
       </div>
 
       <div class="card control">
-        <div class="step"><span>2</span><div><h2>Choose operation</h2><p>Select exactly what you want to control.</p></div></div>
+        <div class="step"><span>2</span><div><h2>MuleSoft control</h2><p>Every workflow option is exposed here.</p></div></div>
 
         <div class="field-row">
           <div>
             <label>Environment</label>
             <select id="environment">
-              <option value="dev">DEV</option>
-              <option value="qa">QA</option>
-              <option value="sandbox">SANDBOX</option>
-              <option value="design">DESIGN</option>
-              <option value="prod">PROD</option>
+              <option value="dev">DEV</option><option value="qa">QA</option><option value="sandbox">SANDBOX</option>
+              <option value="design">DESIGN</option><option value="prod">PROD</option>
             </select>
           </div>
           <div>
             <label>Action</label>
-            <select id="action">
-              <option value="start">START</option>
-              <option value="stop">STOP</option>
-            </select>
+            <select id="action"><option value="start">START</option><option value="stop">STOP</option></select>
           </div>
         </div>
 
         <label>Scope</label>
         <div class="segmented">
-          <button class="seg active" data-scope="application">One application</button>
-          <button class="seg" data-scope="bulk">All applications</button>
+          <button type="button" class="seg active" data-scope="application">One application</button>
+          <button type="button" class="seg" data-scope="bulk">All applications</button>
         </div>
 
         <div id="app-wrap">
@@ -70,21 +64,34 @@
         </div>
 
         <label>Confirmation</label>
-        <input id="confirm" placeholder="Select the matching confirmation" readonly>
+        <select id="confirm">
+          <option value="CONFIRM_START">CONFIRM_START</option>
+          <option value="CONFIRM_STOP">CONFIRM_STOP</option>
+        </select>
+        <p class="hint">The workflow rejects a mismatched confirmation, so this field is intentionally selectable for validation testing.</p>
 
         <button id="run" class="primary">Run MuleSoft control</button>
         <div id="result" class="status hidden"></div>
       </div>
     </section>
 
+    <section class="card credentials">
+      <div class="step"><span>3</span><div><h2>Configure MuleSoft credentials</h2><p>These are not entered into the UI. Add them as <b>Environment secrets</b> in GitHub.</p></div></div>
+      <div class="credential-grid">
+        <div><code>ANYPOINT_CLIENT_ID</code><span>Connected App client ID</span></div>
+        <div><code>ANYPOINT_CLIENT_SECRET</code><span>Connected App client secret</span></div>
+        <div><code>ANYPOINT_ORG_ID</code><span>Anypoint Organization ID</span></div>
+      </div>
+      <p class="hint">For example: GitHub → Settings → Environments → <b>prod</b> → Environment secrets. Repeat for dev/qa/sandbox/design when required. The selected GitHub Environment is the source of truth.</p>
+      <div id="env-help" class="status info">Selected environment: <b id="selected-env">dev</b>. Make sure its three secrets are configured before running.</div>
+    </section>
+
     <section class="card safety">
       <div>
-        <h2>Security model</h2>
-        <p>CloudHub credentials are never entered here. Put <code>ANYPOINT_CLIENT_ID</code>, <code>ANYPOINT_CLIENT_SECRET</code>, and <code>ANYPOINT_ORG_ID</code> into the matching GitHub Environment in your own repository.</p>
+        <h2>What errors mean</h2>
+        <p><b>GitHub 401/403</b> = token or repository permission problem. <b>Workflow dispatch 404</b> = repository/workflow/ref problem. <b>Anypoint authentication failed</b> = Client ID/Secret or Connected App authorization problem. <b>Environment not found</b> = the Anypoint environment name does not match DEV/QA/SANDBOX/DESIGN/PROD.</p>
       </div>
-      <div class="checks">
-        <span>✓ No database</span><span>✓ No paid backend</span><span>✓ No MuleSoft secrets in UI</span><span>✓ Open source</span>
-      </div>
+      <div class="checks"><span>✓ No database</span><span>✓ No paid backend</span><span>✓ No secret persistence</span><span>✓ Open source</span></div>
     </section>
 
     <footer>
