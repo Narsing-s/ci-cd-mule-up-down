@@ -32,12 +32,12 @@ on:
         required: false
         type: string
       confirm:
-        description: "Confirmation — select the same operation you want to execute"
+        description: "Confirmation — select the matching confirmation"
         required: true
         type: choice
         options:
-          - start
-          - stop
+          - CONFIRM_START
+          - CONFIRM_STOP
 
 permissions:
   contents: read
@@ -72,9 +72,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ "$CONFIRMATION" != "$ACTION" ]; then
+          expected_confirmation="CONFIRM_${ACTION^^}"
+          if [ "$CONFIRMATION" != "$expected_confirmation" ]; then
             echo "::error::Confirmation does not match the selected action."
-            echo "::error::Action=$ACTION, Confirmation=$CONFIRMATION"
+            echo "::error::Action=$ACTION, Expected confirmation=$expected_confirmation, Selected confirmation=$CONFIRMATION"
+            echo "::error::For START select CONFIRM_START. For STOP select CONFIRM_STOP."
             exit 1
           fi
 
