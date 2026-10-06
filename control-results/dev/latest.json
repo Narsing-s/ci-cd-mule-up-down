@@ -1,0 +1,46 @@
+{
+  "runId": 37457229431,
+  "runNumber": 35,
+  "repository": "Narsing-s/ci-cd-mule-up-down",
+  "environment": "dev",
+  "requestedEnvironment": "dev",
+  "action": "stop",
+  "scope": "bulk",
+  "application": "",
+  "completedAt": "2026-10-06T11:39:52.328381+00:00",
+  "summary": {
+    "total": 4,
+    "success": 0,
+    "skipped": 4,
+    "running": 0,
+    "stopped": 0,
+    "notRunning": 4,
+    "unknown": 0
+  },
+  "applications": [
+    {
+      "name": "dream-bank-sapi",
+      "id": "a292a0e1-d354-4845-bdb9-13bbedac3c91",
+      "status": "APPLIED",
+      "result": "SKIPPED"
+    },
+    {
+      "name": "integration-with-ai-api",
+      "id": "fab6223a-3d0d-4d5b-8e8e-b87a116bae77",
+      "status": "APPLIED",
+      "result": "SKIPPED"
+    },
+    {
+      "name": "monthly-bank-satement-generate-api",
+      "id": "97b57bfa-4f64-4d0a-8ac9-5ac134e93469",
+      "status": "APPLIED",
+      "result": "SKIPPED"
+    },
+    {
+      "name": "universal-banking-birthday-wishes",
+      "id": "ddb5d1e9-61c0-4b83-8e51-44ed65dc7394",
+      "status": "APPLIED",
+      "result": "SKIPPED"
+    }
+  ]
+}
