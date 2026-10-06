@@ -1,8 +1,12 @@
 # MuleSoft API Start / Stop Control
 
-Central GitHub Actions control plane for **CloudHub 2.0 Mule applications**.
+Free and open-source GitHub Actions control plane for **CloudHub 2.0 Mule applications**.
 
-The workflow supports:
+> **Bring Your Own Credentials (BYOC):** every user runs this tool from their own GitHub repository and stores their own Anypoint Platform credentials in their own GitHub Environments. The upstream repository never needs, receives, or stores your MuleSoft credentials.
+
+## What it does
+
+The existing control workflow supports:
 
 - Start one particular API/application
 - Stop one particular API/application
@@ -11,118 +15,190 @@ The workflow supports:
 - Environment-wise control
 - Current-status check before changing anything
 - Final-state verification
-- GitHub Environment protection for PROD
+- GitHub Environment protection for production
+- GitHub Actions UI for selecting the operation
 
-MuleSoft's CloudHub 2 CLI provides `runtime-mgr:application:list`, `describe`, `start`, and `stop`; CloudHub 2 management uses the application ID obtained from the application list. See the official MuleSoft documentation:
-https://docs.mulesoft.com/anypoint-cli/latest/cloudhub2-apps
+It controls existing CloudHub 2.0 deployments; it does **not** deploy new artifacts.
 
-## GitHub Actions
+## Use it for free
 
-Run:
+You do **not** need access to the maintainer's GitHub secrets.
+
+### Option 1 — Fork
+
+1. Fork this repository into your own GitHub account or organization.
+2. In your copy, open **Settings → Environments**.
+3. Create the environments you actually use:
+   `dev`, `qa`, `sandbox`, `design`, `prod`.
+4. Add your own secrets to each environment:
+   `ANYPOINT_CLIENT_ID`
+   `ANYPOINT_CLIENT_SECRET`
+   `ANYPOINT_ORG_ID`
+5. Enable **Actions** in your repository if required.
+6. Open **Actions → MuleSoft API Start / Stop Control → Run workflow**.
+7. Select the environment, action, scope, application, and matching confirmation.
+8. The workflow authenticates against **your** Anypoint Platform organization and controls **your** CloudHub 2.0 applications.
+
+### Option 2 — Use as a GitHub template
+
+If this repository is configured as a GitHub Template Repository, choose **Use this template** and create your own repository. Then complete the same Environment and secret setup above.
+
+The workflow itself remains in your repository, so the Actions UI and credentials belong to you.
+
+## Required credentials
+
+Create a MuleSoft Anypoint Platform Connected App appropriate for your organization and give it only the permissions required for the operations you intend to perform.
+
+Store the values as **GitHub Environment secrets**:
+
+```text
+ANYPOINT_CLIENT_ID
+ANYPOINT_CLIENT_SECRET
+ANYPOINT_ORG_ID
+```
+
+Do not put client IDs, client secrets, access tokens, passwords, or other credentials in:
+
+- source files
+- `.yml` / `.yaml` files
+- README files
+- screenshots
+- issue comments
+- pull requests
+- frontend code
+
+### Environment isolation
+
+Use separate GitHub Environments when you want separate credentials or approvals:
+
+```text
+dev
+qa
+sandbox
+design
+prod
+```
+
+The workflow selects the GitHub Environment from the Actions UI. The job then receives the secrets belonging to that selected environment.
+
+For production, configure **Required reviewers** on the `prod` GitHub Environment if you want human approval before a production start/stop operation.
+
+## Run from the GitHub UI
+
+Go to:
 
 **Actions → MuleSoft API Start / Stop Control → Run workflow**
 
-Choose:
+Available selections:
 
-1. **action** — `start` or `stop`
-2. **scope** — `application` or `bulk`
-3. **environment** — `dev`, `qa`, `uat`, `sandbox`, or `prod`
-4. **application** — required for application scope
-5. **confirm** — type `CONFIRM`
+| Input | Values |
+|---|---|
+| Action | `start` / `stop` |
+| Scope | `application` / `bulk` |
+| Environment | `dev` / `qa` / `sandbox` / `design` / `prod` |
+| Application | Required for application scope |
+| Confirmation | `CONFIRM_START` / `CONFIRM_STOP` |
 
-### Examples
-
-#### Stop one API
+### Example — stop one API
 
 ```text
 action      = stop
 scope       = application
 environment = qa
 application = customer-api
-confirm     = CONFIRM
+confirm     = CONFIRM_STOP
 ```
 
-#### Start one API
+### Example — start one API
 
 ```text
 action      = start
 scope       = application
 environment = prod
 application = payment-api
-confirm     = CONFIRM
+confirm     = CONFIRM_START
 ```
 
-#### Stop every API in QA
+### Example — stop every API in QA
 
 ```text
 action      = stop
 scope       = bulk
 environment = qa
 application = [blank]
-confirm     = CONFIRM
+confirm     = CONFIRM_STOP
 ```
 
-#### Start every API in QA
+## Architecture
 
 ```text
-action      = start
-scope       = bulk
-environment = qa
-application = [blank]
-confirm     = CONFIRM
+Your GitHub Repository
+        |
+        v
+GitHub Actions UI
+        |
+        +--> Environment: DEV / QA / SANDBOX / DESIGN / PROD
+        |
+        +--> Action: START / STOP
+        |
+        +--> Scope: APPLICATION / BULK
+        |
+        v
+Your GitHub Environment Secrets
+        |
+        v
+Your MuleSoft Anypoint Platform
+        |
+        v
+Your CloudHub 2.0 Applications
+        |
+        v
+START / STOP + state verification
 ```
 
-## Required GitHub Environment configuration
+The upstream open-source project is only the workflow source. Each user operates an independent copy against their own MuleSoft organization.
 
-Create these GitHub Environments:
+## Security model
 
-```text
-dev
-qa
-uat
-sandbox
-prod
-```
+This project intentionally follows a **bring-your-own-credentials** model.
 
-Add these secrets to each environment:
+- The upstream repository does not require your credentials.
+- Your secrets stay in your GitHub repository's Environment settings.
+- The client secret is passed to the OAuth token request through a GitHub Actions secret.
+- Credentials are not written into workflow files.
+- Production can be protected with GitHub Environment reviewers.
+- Users should create Connected Apps with least-privilege permissions.
+- Never share a GitHub Actions log containing a secret or token.
 
-```text
-ANYPOINT_CLIENT_ID
-ANYPOINT_CLIENT_SECRET
-ANYPOINT_ORG_ID
-CLOUDHUB_ENVIRONMENT
-```
+**Important:** anyone with sufficient permission to run or modify workflows in your own repository may potentially control the applications that your credentials can access. Protect repository write access and production Environment approvals accordingly.
 
-For production, configure **Required reviewers** on the `prod` GitHub Environment. That makes a production start/stop operation require approval before the job can execute.
+## CloudHub 2.0
 
-## Design
+MuleSoft's Anypoint CLI provides the CloudHub 2.0 application list, describe, start, and stop operations used by this workflow.
 
-```text
-GitHub Actions
-      |
-      +-- Environment selector
-      |      dev / qa / uat / sandbox / prod
-      |
-      +-- Action selector
-      |      START / STOP
-      |
-      +-- Scope selector
-             |
-             +-- Particular application
-             |
-             +-- Bulk applications
-                       |
-                       v
-             Anypoint Platform
-                       |
-                       v
-             CloudHub 2 Application IDs
-                       |
-                       v
-                START / STOP
-                       |
-                       v
-                Verify state
-```
+Official documentation:
 
-The workflow does **not deploy a new artifact**. It only starts or stops the existing CloudHub 2 deployment, which is the correct separation for an operational control pipeline.
+https://docs.mulesoft.com/anypoint-cli/latest/cloudhub2-apps
+
+## Open source
+
+This project is released under the **MIT License**.
+
+You are free to:
+
+- use it
+- fork it
+- modify it
+- adapt it for your organization
+- use it in commercial environments
+- contribute improvements
+
+See [LICENSE](LICENSE).
+
+## Scope of the project
+
+This project is an operational control workflow, not a deployment pipeline.
+
+It is designed for teams that need a simple, transparent and free way to start or stop existing CloudHub 2.0 applications from a controlled GitHub Actions UI.
+
+No central database or hosted credential service is required.
