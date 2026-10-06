@@ -332,62 +332,189 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Each API gets its own short control window. If one API does not
-          # reach the requested state, record it and continue with the others.
+          # CloudHub 2.0 exposes two different concepts:
+          #   * deployment state: APPLYING / APPLIED / FAILED
+          #   * application desired state: STARTED / STOPPED
+          # The workflow must not confuse APPLIED with RUNNING.
           per_api_attempts=6
           retry_seconds=10
           : > control-status.txt
 
-          while IFS="|" read -r name app_id old_status; do
-            reached=0
+          python3 - <<'PY'
+          import concurrent.futures
+          import json
+          import subprocess
+          import threading
+          import time
 
-            for attempt in $(seq 1 "$per_api_attempts"); do
-              raw="$(anypoint-cli-v4 runtime-mgr:application:describe "$app_id" --output json 2>/dev/null || true)"
-              status="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("status") or d.get("Status") or d.get("application",{}).get("status") or "UNKNOWN").upper())' <<< "$raw" 2>/dev/null || echo UNKNOWN)"
+          action = "\${{ inputs.action }}".upper()
+          attempts = 6
+          retry_seconds = 10
+          lock = threading.Lock()
 
-              echo "$name => $status (attempt $attempt/$per_api_attempts)"
+          rows = []
+          with open("applications.txt", encoding="utf-8") as f:
+              for line in f:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  parts = line.split("|", 2)
+                  if len(parts) == 3:
+                      rows.append(parts)
 
-              if [ "$ACTION" = "stop" ]; then
-                case "$status" in
-                  STOPPED|TERMINATED|DELETED)
-                    reached=1
-                    break
-                    ;;
-                  *)
-                    anypoint-cli-v4 runtime-mgr:application:stop "$app_id" || true
-                    ;;
-                esac
-              else
-                case "$status" in
-                  RUNNING)
-                    reached=1
-                    break
-                    ;;
-                  APPLYING|PENDING|STARTING|RECOVERING|STOPPING)
-                    echo "$name is transitioning; waiting..."
-                    ;;
-                  *)
-                    anypoint-cli-v4 runtime-mgr:application:start "$app_id" || true
-                    ;;
-                esac
-              fi
+          def cli(*args):
+              completed = subprocess.run(
+                  ["anypoint-cli-v4", *args],
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              )
+              return completed
 
-              sleep "$retry_seconds"
-            done
+          def collect_strings(value, key_name, out):
+              if isinstance(value, dict):
+                  for key, child in value.items():
+                      if key.lower() == key_name.lower() and child is not None:
+                          out.append(str(child).strip().upper())
+                      collect_strings(child, key_name, out)
+              elif isinstance(value, list):
+                  for child in value:
+                      collect_strings(child, key_name, out)
 
-            raw="$(anypoint-cli-v4 runtime-mgr:application:describe "$app_id" --output json 2>/dev/null || true)"
-            status="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("status") or d.get("Status") or d.get("application",{}).get("status") or "UNKNOWN").upper())' <<< "$raw" 2>/dev/null || echo UNKNOWN)"
+          def inspect(app_id):
+              result = cli("runtime-mgr:application:describe", app_id, "--output", "json")
+              raw = result.stdout.strip()
+              if not raw:
+                  return {
+                      "ok": False,
+                      "deployment": "UNKNOWN",
+                      "desired": "UNKNOWN",
+                      "error": (result.stderr or "No JSON returned by describe").strip(),
+                  }
 
-            if [ "$reached" -eq 1 ]; then
-              echo "$name|$app_id|$status|SUCCESS" >> control-status.txt
-              echo "Completed $ACTION for $name => $status"
-            else
-              echo "$name|$app_id|$status|SKIPPED" >> control-status.txt
-              echo "::warning::$name did not reach the requested state within the control window. Skipping it and continuing with remaining APIs. Final status=$status"
-            fi
-          done < applications.txt
+              try:
+                  payload = json.loads(raw)
+              except Exception as exc:
+                  return {
+                      "ok": False,
+                      "deployment": "UNKNOWN",
+                      "desired": "UNKNOWN",
+                      "error": f"Invalid JSON from describe: {exc}",
+                  }
 
-          echo "All applications have been processed. Failed/slow APIs were skipped so remaining APIs could continue."
+              desired = []
+              collect_strings(payload, "desiredState", desired)
+
+              deployment = []
+              for key in ("status", "deploymentStatus", "state"):
+                  collect_strings(payload, key, deployment)
+
+              desired_state = desired[0] if desired else "UNKNOWN"
+              deployment_state = "UNKNOWN"
+              for candidate in deployment:
+                  if candidate in {"APPLIED", "APPLYING", "FAILED", "DELETED", "UNKNOWN"}:
+                      deployment_state = candidate
+                      break
+
+              return {
+                  "ok": result.returncode == 0,
+                  "deployment": deployment_state,
+                  "desired": desired_state,
+                  "error": (result.stderr or "").strip(),
+              }
+
+          def target_reached(info):
+              wanted = "STARTED" if action == "START" else "STOPPED"
+              return info["desired"] == wanted and info["deployment"] == "APPLIED"
+
+          def process(row):
+              name, app_id, old_status = row
+              last_error = ""
+
+              for attempt in range(1, attempts + 1):
+                  info = inspect(app_id)
+                  desired = info["desired"]
+                  deployment = info["deployment"]
+                  last_error = info["error"]
+
+                  with lock:
+                      print(
+                          f"{name} => deployment={deployment}, desired={desired} "
+                          f"(attempt {attempt}/{attempts})",
+                          flush=True
+                      )
+
+                  if target_reached(info):
+                      break
+
+                  wanted = "STARTED" if action == "START" else "STOPPED"
+                  command = (
+                      "runtime-mgr:application:start"
+                      if action == "START"
+                      else "runtime-mgr:application:stop"
+                  )
+
+                  if desired != wanted:
+                      result = cli(command, app_id)
+                      command_output = (result.stdout or "").strip()
+                      command_error = (result.stderr or "").strip()
+                      if result.returncode != 0:
+                          last_error = command_error or command_output or (
+                              f"{command} exited with code {result.returncode}"
+                          )
+                          with lock:
+                              print(
+                                  f"WARNING: {name} control command failed: {last_error}",
+                                  flush=True
+                              )
+                      else:
+                          with lock:
+                              print(
+                                  f"Submitted {action} for {name}: "
+                                  f"{command_output or 'command accepted'}",
+                                  flush=True
+                              )
+                  else:
+                      with lock:
+                          print(
+                              f"{name} already has desired state {wanted}; waiting "
+                              f"for deployment to become APPLIED.",
+                              flush=True
+                          )
+
+                  if attempt < attempts:
+                      time.sleep(retry_seconds)
+
+              final_info = inspect(app_id)
+              final_status = final_info["desired"]
+              deployment = final_info["deployment"]
+              if deployment != "APPLIED":
+                  final_status = f"{final_status}/{deployment}"
+              final_error = final_info["error"] or last_error
+
+              result = "SUCCESS" if target_reached(final_info) else "FAILED"
+
+              with lock:
+                  with open("control-status.txt", "a", encoding="utf-8") as out:
+                      out.write(f"{name}|{app_id}|{final_status}|{result}\n")
+                  print(f"{name} => {final_status} => {result}", flush=True)
+                  if result != "SUCCESS" and final_error:
+                      print(
+                          f"::warning::{name} final CLI error: {final_error}",
+                          flush=True
+                      )
+
+          # Process every selected API concurrently so one slow application
+          # never blocks the rest.
+          with concurrent.futures.ThreadPoolExecutor(
+              max_workers=max(1, len(rows))
+          ) as executor:
+              list(executor.map(process, rows))
+
+          print("All selected APIs have been processed.", flush=True)
+          PY
+
+          echo "CloudHub 2.0 lifecycle control completed for every selected API."
 
       - name: Publish final API statistics
         shell: bash
@@ -396,26 +523,31 @@ jobs:
 
           echo "## Final API Statistics" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Application | Final CloudHub 2.0 status | Result |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|---|"
+          echo "| Application | Final desired/deployment status | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
 
-          if [ -s control-status.txt ]; then
-            while IFS="|" read -r name app_id status result; do
-              echo "| $name | **$status** | **$result** |" >> "$GITHUB_STEP_SUMMARY"
-              echo "$name => $status => $result"
-            done < control-status.txt
-          else
+          if [ ! -s control-status.txt ]; then
             echo "::error::No API results were produced."
             exit 1
           fi
 
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "APIs that reached the requested state are marked SUCCESS." >> "$GITHUB_STEP_SUMMARY"
-          echo "APIs that did not recover within the per-API control window are marked SKIPPED; remaining APIs were still processed." >> "$GITHUB_STEP_SUMMARY"
+          failures=0
+          while IFS="|" read -r name app_id status result; do
+            echo "| $name | **$status** | **$result** |" >> "$GITHUB_STEP_SUMMARY"
+            echo "$name => $status => $result"
+            if [ "$result" != "SUCCESS" ]; then
+              failures=$((failures + 1))
+            fi
+          done < control-status.txt
 
-          # Skipped APIs must not block the remaining APIs or make the whole
-          # bulk operation fail. Their exact final status is visible above.
-          echo "Bulk API control completed. Slow/unavailable APIs were skipped without blocking the remaining APIs."
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$failures" -gt 0 ]; then
+            echo "::error::$failures selected API(s) did not reach the requested CloudHub 2.0 state."
+            echo "Bulk control processed every API, but the workflow is marked failed so a green run can never falsely imply that all APIs are up/down."
+            exit 1
+          fi
+
+          echo "All selected APIs reached the requested CloudHub 2.0 state."
 
       - name: Publish machine-readable analytics
         if: always() && hashFiles('control-status.txt') != ''
