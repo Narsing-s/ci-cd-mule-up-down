@@ -1,33 +1,33 @@
 {
-  "runId": 37473687241,
-  "runNumber": 37,
+  "runId": 37476823867,
+  "runNumber": 40,
   "repository": "Narsing-s/ci-cd-mule-up-down",
   "environment": "Sandbox",
   "requestedEnvironment": "sandbox",
-  "action": "stop",
+  "action": "start",
   "scope": "bulk",
   "application": "",
-  "completedAt": "2026-10-06T14:03:20.773476+00:00",
+  "completedAt": "2026-10-06T15:25:30.881225+00:00",
   "summary": {
-    "total": 9,
+    "total": 7,
     "success": 0,
-    "skipped": 9,
+    "skipped": 7,
     "running": 0,
     "stopped": 0,
-    "notRunning": 9,
+    "notRunning": 7,
     "unknown": 0
   },
   "applications": [
     {
       "name": "birthday-notification-api",
       "id": "db28314d-0739-44af-bd57-f123706c37d2",
-      "status": "APPLIED",
+      "status": "APPLYING",
       "result": "SKIPPED"
     },
     {
       "name": "calculator-api",
       "id": "26ba875f-1959-451f-bcb2-ff66001276c6",
-      "status": "APPLIED",
+      "status": "APPLYING",
       "result": "SKIPPED"
     },
     {
@@ -39,13 +39,13 @@
     {
       "name": "intrest-calculator-api",
       "id": "019ad628-f705-48ac-88f6-53b8eb7be2ea",
-      "status": "APPLIED",
+      "status": "APPLYING",
       "result": "SKIPPED"
     },
     {
       "name": "loan-scheduler",
       "id": "749f6a85-13e3-4a12-b615-f98a4275052a",
-      "status": "APPLIED",
+      "status": "APPLYING",
       "result": "SKIPPED"
     },
     {
@@ -57,18 +57,6 @@
     {
       "name": "policies-demo-api",
       "id": "37dba007-f55f-4228-a9be-326d60f02377",
-      "status": "APPLIED",
-      "result": "SKIPPED"
-    },
-    {
-      "name": "salesforce-contact-sapi",
-      "id": "bfe05dc9-461d-453c-be86-814d5171d7f0",
-      "status": "APPLIED",
-      "result": "SKIPPED"
-    },
-    {
-      "name": "sch-real-bank-api",
-      "id": "e034c631-2244-46fc-9bb3-11b96e083dcc",
       "status": "APPLIED",
       "result": "SKIPPED"
     }
