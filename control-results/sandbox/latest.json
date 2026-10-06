@@ -1,81 +1,81 @@
 {
-  "runId": 37492177895,
-  "runNumber": 59,
+  "runId": 37492507120,
+  "runNumber": 60,
   "repository": "Narsing-s/ci-cd-mule-up-down",
   "environment": "Sandbox",
   "requestedEnvironment": "sandbox",
-  "action": "start",
+  "action": "stop",
   "scope": "bulk",
   "application": "",
-  "completedAt": "2026-10-06T16:01:03.884198+00:00",
+  "completedAt": "2026-10-06T16:03:55.891535+00:00",
   "summary": {
     "total": 10,
     "success": 10,
     "skipped": 0,
     "running": 0,
-    "stopped": 0,
+    "stopped": 10,
     "notRunning": 10,
     "unknown": 0
   },
   "applications": [
     {
-      "name": "downloadflow-emp-excel-file",
-      "id": "a6535eaa-83fb-4c6f-b30e-c185a832c662",
-      "status": "STARTED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "sch-real-bank-api",
-      "id": "e034c631-2244-46fc-9bb3-11b96e083dcc",
-      "status": "STARTED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "loan-scheduler",
-      "id": "749f6a85-13e3-4a12-b615-f98a4275052a",
-      "status": "STARTED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "transform-json-to-excel",
-      "id": "c55ad60a-c64f-4f6d-85bb-a377534b52e3",
-      "status": "STARTED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "salesforce-contact-sapi",
-      "id": "bfe05dc9-461d-453c-be86-814d5171d7f0",
-      "status": "STARTED",
+      "name": "maths-table",
+      "id": "7e89b795-ad54-4aac-8df9-47a2bf0db1ea",
+      "status": "STOPPED",
       "result": "SUCCESS"
     },
     {
       "name": "intrest-calculator-api",
       "id": "019ad628-f705-48ac-88f6-53b8eb7be2ea",
-      "status": "STARTED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "policies-demo-api",
-      "id": "37dba007-f55f-4228-a9be-326d60f02377",
-      "status": "STARTED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "birthday-notification-api",
-      "id": "db28314d-0739-44af-bd57-f123706c37d2",
-      "status": "STARTED",
+      "status": "STOPPED",
       "result": "SUCCESS"
     },
     {
       "name": "calculator-api",
       "id": "26ba875f-1959-451f-bcb2-ff66001276c6",
-      "status": "STARTED",
+      "status": "STOPPED",
       "result": "SUCCESS"
     },
     {
-      "name": "maths-table",
-      "id": "7e89b795-ad54-4aac-8df9-47a2bf0db1ea",
-      "status": "STARTED",
+      "name": "birthday-notification-api",
+      "id": "db28314d-0739-44af-bd57-f123706c37d2",
+      "status": "STOPPED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "downloadflow-emp-excel-file",
+      "id": "a6535eaa-83fb-4c6f-b30e-c185a832c662",
+      "status": "STOPPED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "transform-json-to-excel",
+      "id": "c55ad60a-c64f-4f6d-85bb-a377534b52e3",
+      "status": "STOPPED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "loan-scheduler",
+      "id": "749f6a85-13e3-4a12-b615-f98a4275052a",
+      "status": "STOPPED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "salesforce-contact-sapi",
+      "id": "bfe05dc9-461d-453c-be86-814d5171d7f0",
+      "status": "STOPPED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "policies-demo-api",
+      "id": "37dba007-f55f-4228-a9be-326d60f02377",
+      "status": "STOPPED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "sch-real-bank-api",
+      "id": "e034c631-2244-46fc-9bb3-11b96e083dcc",
+      "status": "STOPPED",
       "result": "SUCCESS"
     }
   ]
