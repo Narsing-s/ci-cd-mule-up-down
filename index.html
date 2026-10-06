@@ -31,7 +31,7 @@
         <label>GitHub fine-grained token</label>
         <input id="token" type="password" placeholder="github_pat_…" autocomplete="off">
         <p class="hint">Session only. Required repository access: <b>Actions → Read and write</b> and <b>Contents → Read-only</b>.</p>
-        <button id="connect" class="secondary">Test GitHub access & workflow permission</button>
+        <button id="connect" class="secondary">Test GitHub access & dispatch permission</button>
         <div id="connection" class="status hidden"></div>
       </div>
 
@@ -84,6 +84,30 @@
       </div>
       <p class="hint">For example: GitHub → Settings → Environments → <b>prod</b> → Environment secrets. Repeat for dev/qa/sandbox/design when required. The selected GitHub Environment is the source of truth.</p>
       <div id="env-help" class="status info">Selected environment: <b id="selected-env">dev</b>. Make sure its three secrets are configured before running.</div>
+    </section>
+
+    <section class="card analytics" id="analytics">
+      <div class="analytics-head">
+        <div>
+          <div class="step"><span>4</span><div><h2>Execution analytics</h2><p>After the workflow finishes, the UI reads the machine-readable result published by the workflow.</p></div></div>
+        </div>
+        <button id="refresh-analytics" class="secondary">Refresh analytics</button>
+      </div>
+      <div id="analytics-status" class="status info">No execution selected yet.</div>
+      <div class="metrics" id="metrics">
+        <div class="metric"><span>Total APIs</span><strong id="m-total">—</strong></div>
+        <div class="metric"><span>Successful</span><strong id="m-success">—</strong></div>
+        <div class="metric"><span>Skipped / Failed</span><strong id="m-skipped">—</strong></div>
+        <div class="metric"><span>Running</span><strong id="m-running">—</strong></div>
+        <div class="metric"><span>Stopped / Not running</span><strong id="m-stopped">—</strong></div>
+        <div class="metric"><span>Unknown</span><strong id="m-unknown">—</strong></div>
+      </div>
+      <div class="analytics-table-wrap">
+        <table class="analytics-table">
+          <thead><tr><th>API</th><th>Final status</th><th>Result</th></tr></thead>
+          <tbody id="analytics-body"><tr><td colspan="3">Run START or STOP to populate results.</td></tr></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="card safety">
