@@ -273,47 +273,72 @@ jobs:
             echo "| $name | $app_id | $status | $ACTION |" >> "$GITHUB_STEP_SUMMARY"
           done < applications.txt
 
-      - name: Stop selected applications
-        if: inputs.action == 'stop'
+      - name: Converge applications to requested state
         shell: bash
         run: |
           set -euo pipefail
 
-          while IFS="|" read -r name app_id status; do
-            case "${status^^}" in
-              RUNNING|STARTED|DEPLOYED)
-                echo "Stopping: $name ($app_id)"
-                anypoint-cli-v4 runtime-mgr:application:stop "$app_id"
-                ;;
-              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING|APPLIED)
-                echo "Not currently running according to application status: $name ($app_id) => $status"
-                ;;
-              *)
-                echo "::warning::Unknown status for $name: $status. Skipping."
-                ;;
-            esac
-          done < applications.txt
+          # Do not trust the initial list status alone. CloudHub 2.0 can report
+          # APPLYING/APPLIED while an application is still transitioning.
+          # Re-read each application and keep driving it toward the requested state.
+          max_action_attempts=12
 
-      - name: Start selected applications
-        if: inputs.action == 'start'
-        shell: bash
-        run: |
-          set -euo pipefail
+          for attempt in $(seq 1 "$max_action_attempts"); do
+            echo "Control attempt $attempt/$max_action_attempts for action=$ACTION"
+            all_done=1
 
-          while IFS="|" read -r name app_id status; do
-            case "${status^^}" in
-              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING|APPLIED)
-                echo "Starting: $name ($app_id) (application status: $status)"
-                anypoint-cli-v4 runtime-mgr:application:start "$app_id"
-                ;;
-              RUNNING|STARTED|DEPLOYED)
-                echo "Already running: $name ($app_id)"
-                ;;
-              *)
-                echo "::warning::Unknown status for $name: $status. Skipping."
-                ;;
-            esac
-          done < applications.txt
+            while IFS="|" read -r name app_id old_status; do
+              raw="$(anypoint-cli-v4 runtime-mgr:application:describe "$app_id" --output json 2>/dev/null || true)"
+              status="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("status") or d.get("Status") or d.get("application",{}).get("status") or "UNKNOWN").upper())' <<< "$raw" 2>/dev/null || echo UNKNOWN)"
+
+              echo "$name => current CloudHub 2.0 status: $status"
+
+              if [ "$ACTION" = "stop" ]; then
+                case "$status" in
+                  STOPPED|TERMINATED|DELETED)
+                    echo "$name is already stopped."
+                    ;;
+                  *)
+                    all_done=0
+                    echo "Issuing STOP to $name ($app_id), including transitional state $status."
+                    anypoint-cli-v4 runtime-mgr:application:stop "$app_id" || \
+                      echo "::warning::STOP request for $name was not accepted while status=$status; will retry."
+                    ;;
+                esac
+              else
+                case "$status" in
+                  RUNNING)
+                    echo "$name is RUNNING."
+                    ;;
+                  FAILED|STOPPED|TERMINATED|DELETED|APPLIED|DOWN|NOT_RUNNING|UNDEPLOYED)
+                    all_done=0
+                    echo "Issuing START to $name ($app_id), current status=$status."
+                    anypoint-cli-v4 runtime-mgr:application:start "$app_id" || \
+                      echo "::warning::START request for $name was not accepted while status=$status; will retry."
+                    ;;
+                  APPLYING|PENDING|STARTING|RECOVERING|STOPPING)
+                    all_done=0
+                    echo "$name is transitioning ($status); waiting before retrying START."
+                    ;;
+                  *)
+                    all_done=0
+                    echo "::warning::Unknown status=$status for $name; will retry."
+                    ;;
+                esac
+              fi
+            done < applications.txt
+
+            if [ "$all_done" -eq 1 ]; then
+              echo "All selected applications have reached the requested operational state."
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "::error::Could not converge all selected applications to action=$ACTION within the control window."
+          exit 1
+
 
       - name: Verify final state
         shell: bash
