@@ -360,7 +360,7 @@ jobs:
           import threading
           import time
 
-          action = "\${{ inputs.action }}".upper()
+          action = __import__("os").environ["ACTION"].upper()
           attempts = 6
           retry_seconds = 10
           lock = threading.Lock()
