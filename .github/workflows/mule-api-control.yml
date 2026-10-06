@@ -54,17 +54,21 @@ jobs:
     environment: ${{ inputs.environment }}
 
     env:
+      # Anypoint CLI v4 authentication variables.
+      # Existing GitHub secret names are preserved.
       ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
-      ANYPOINT_ORG_ID: ${{ secrets.ANYPOINT_ORG_ID }}
-      ANYPOINT_ENVIRONMENT: ${{ secrets.CLOUDHUB_ENVIRONMENT }}
+      ANYPOINT_ORG: ${{ secrets.ANYPOINT_ORG_ID }}
+      ANYPOINT_ENV: ${{ secrets.CLOUDHUB_ENVIRONMENT }}
+      ANYPOINT_HOST: anypoint.mulesoft.com
+
       ACTION: ${{ inputs.action }}
       SCOPE: ${{ inputs.scope }}
       REQUESTED_APPLICATION: ${{ inputs.application }}
       CONFIRMATION: ${{ inputs.confirm }}
 
     steps:
-      - name: Validate request
+      - name: Validate request and credentials
         shell: bash
         run: |
           set -euo pipefail
@@ -75,9 +79,9 @@ jobs:
             exit 1
           fi
 
-          for name in ANYPOINT_CLIENT_ID ANYPOINT_CLIENT_SECRET ANYPOINT_ORG_ID ANYPOINT_ENVIRONMENT; do
+          for name in ANYPOINT_CLIENT_ID ANYPOINT_CLIENT_SECRET ANYPOINT_ORG ANYPOINT_ENV; do
             if [ -z "${!name:-}" ]; then
-              echo "::error::Missing GitHub Environment secret: $name"
+              echo "::error::Missing GitHub Environment secret/value: $name"
               exit 1
             fi
           done
@@ -87,16 +91,76 @@ jobs:
             exit 1
           fi
 
-          echo "Environment: $ANYPOINT_ENVIRONMENT"
+          echo "Environment: $ANYPOINT_ENV"
           echo "Action: $ACTION"
           echo "Scope: $SCOPE"
+          echo "Application: ${REQUESTED_APPLICATION:-ALL}"
           echo "Confirmation: $CONFIRMATION"
 
       - name: Install Anypoint CLI
+        shell: bash
         run: |
           set -euo pipefail
           npm install -g anypoint-cli-v4-public
           anypoint-cli-v4 --version
+
+      - name: Verify Anypoint Platform authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Testing Connected App authentication..."
+
+          # Credentials are supplied through ANYPOINT_CLIENT_ID,
+          # ANYPOINT_CLIENT_SECRET and ANYPOINT_ORG.
+          # The secret is never printed.
+          anypoint-cli-v4 account:environment:list --output json > /tmp/anypoint-environments.json
+
+          test -s /tmp/anypoint-environments.json
+
+          echo "Anypoint Platform authentication successful."
+
+      - name: Verify selected environment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - "$ANYPOINT_ENV" /tmp/anypoint-environments.json <<'PY'
+          import json
+          import sys
+
+          expected = sys.argv[1]
+          path = sys.argv[2]
+
+          with open(path, encoding="utf-8") as f:
+              data = json.load(f)
+
+          found = False
+
+          def walk(value):
+              if isinstance(value, dict):
+                  yield value
+                  for v in value.values():
+                      yield from walk(v)
+              elif isinstance(value, list):
+                  for v in value:
+                      yield from walk(v)
+
+          for obj in walk(data):
+              for key in ("name", "environmentName"):
+                  value = obj.get(key)
+                  if value is not None and str(value).strip().lower() == expected.strip().lower():
+                      found = True
+                      break
+              if found:
+                  break
+
+          if not found:
+              print(f"::error::Anypoint environment '{expected}' was not found for the configured organization.")
+              sys.exit(1)
+
+          print(f"Anypoint environment '{expected}' is available.")
+          PY
 
       - name: Resolve target applications
         id: resolve
@@ -108,7 +172,9 @@ jobs:
           printf '%s' "$all_apps" > all-apps.json
 
           python3 - <<'PY' > applications.txt
-          import json, os, sys
+          import json
+          import os
+          import sys
 
           with open("all-apps.json", encoding="utf-8") as f:
               data = json.load(f)
@@ -135,13 +201,21 @@ jobs:
                   continue
 
               item = (str(name), str(app_id), str(status or "UNKNOWN"))
+
               if item not in found:
                   found.append(item)
 
           if scope == "application":
-              matches = [x for x in found if x[0] == requested or x[1] == requested]
+              matches = [
+                  x for x in found
+                  if x[0] == requested or x[1] == requested
+              ]
+
               if not matches:
-                  print(f"Requested application was not found: {requested}", file=sys.stderr)
+                  print(
+                      f"Requested application was not found: {requested}",
+                      file=sys.stderr
+                  )
                   sys.exit(2)
           else:
               matches = found
