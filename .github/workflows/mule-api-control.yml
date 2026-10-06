@@ -290,14 +290,27 @@ jobs:
                   found.append(item)
 
           if scope == "application":
-              matches = [
-                  x for x in found
-                  if x[0] == requested or x[1] == requested
-              ]
+              requested_items = [item.strip() for item in requested.split(",") if item.strip()]
+              matches = []
+              missing = []
 
-              if not matches:
+              for requested_item in requested_items:
+                  item_matches = [
+                      x for x in found
+                      if x[0].lower() == requested_item.lower()
+                      or x[1] == requested_item
+                  ]
+                  if not item_matches:
+                      missing.append(requested_item)
+                  else:
+                      for item in item_matches:
+                          if item not in matches:
+                              matches.append(item)
+
+              if missing:
                   print(
-                      f"Requested application was not found: {requested}",
+                      "Requested application(s) were not found: "
+                      + ", ".join(missing),
                       file=sys.stderr
                   )
                   sys.exit(2)
