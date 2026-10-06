@@ -42,7 +42,7 @@ on:
           - CONFIRM_STOP
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: mule-api-control-${{ inputs.environment }}
@@ -416,3 +416,72 @@ jobs:
           # Skipped APIs must not block the remaining APIs or make the whole
           # bulk operation fail. Their exact final status is visible above.
           echo "Bulk API control completed. Slow/unavailable APIs were skipped without blocking the remaining APIs."
+
+      - name: Publish machine-readable analytics
+        if: always() && hashFiles('control-status.txt') != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+
+          rows = []
+          with open("control-status.txt", encoding="utf-8") as f:
+              for line in f:
+                  parts = line.rstrip("\n").split("|")
+                  if len(parts) == 4:
+                      name, app_id, status, result = parts
+                      rows.append({"name": name, "id": app_id, "status": status.upper(), "result": result.upper()})
+
+          def count_status(*values):
+              return sum(1 for r in rows if r["status"] in values)
+
+          analytics = {
+              "runId": int(os.environ["GITHUB_RUN_ID"]),
+              "runNumber": int(os.environ["GITHUB_RUN_NUMBER"]),
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "environment": os.environ["ANYPOINT_ENV"],
+              "requestedEnvironment": os.environ["INPUT_ENVIRONMENT"],
+              "action": os.environ["ACTION"],
+              "scope": os.environ["SCOPE"],
+              "application": os.environ.get("REQUESTED_APPLICATION", ""),
+              "completedAt": datetime.now(timezone.utc).isoformat(),
+              "summary": {
+                  "total": len(rows),
+                  "success": sum(1 for r in rows if r["result"] == "SUCCESS"),
+                  "skipped": sum(1 for r in rows if r["result"] == "SKIPPED"),
+                  "running": count_status("RUNNING"),
+                  "stopped": count_status("STOPPED", "TERMINATED", "DELETED"),
+                  "notRunning": sum(1 for r in rows if r["status"] not in ("RUNNING",)),
+                  "unknown": count_status("UNKNOWN")
+              },
+              "applications": rows
+          }
+
+          with open("control-result.json", "w", encoding="utf-8") as f:
+              json.dump(analytics, f, indent=2)
+          PY
+
+          path="control-results/${{ inputs.environment }}/latest.json"
+          encoded="$(base64 -w 0 control-result.json)"
+          sha="$(gh api "repos/${GITHUB_REPOSITORY}/contents/${path}" --jq '.sha' 2>/dev/null || true)"
+
+          if [ -n "$sha" ]; then
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${path}" \
+              -f message="chore: update MuleSoft control analytics" \
+              -f content="$encoded" \
+              -f sha="$sha" \
+              -f branch="${{ github.ref_name }}" >/dev/null
+          else
+            gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${path}" \
+              -f message="chore: publish MuleSoft control analytics" \
+              -f content="$encoded" \
+              -f branch="${{ github.ref_name }}" >/dev/null
+          fi
+
+          echo "Machine-readable analytics published to $path"
+          cat control-result.json
