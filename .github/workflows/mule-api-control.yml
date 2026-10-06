@@ -1,5 +1,7 @@
 name: MuleSoft API Start / Stop Control
 
+run-name: "MuleSoft API Start / Stop Control #${{ github.run_number }} — ${{ inputs.environment }} — ${{ inputs.action }}"
+
 on:
   workflow_dispatch:
     inputs:
