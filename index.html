@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Free open-source MuleSoft CloudHub 2.0 API Start / Stop Control">
+  <title>MuleSoft API Control</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">OPEN SOURCE • BYO CREDENTIALS</div>
+        <h1>MuleSoft API Control</h1>
+        <p>Start or stop your CloudHub 2.0 applications from a simple web UI. Your MuleSoft credentials stay in your own GitHub Environment secrets.</p>
+      </div>
+      <a class="source" href="https://github.com/Narsing-s/ci-cd-mule-up-down" target="_blank" rel="noreferrer">View source ↗</a>
+    </header>
+
+    <section class="notice">
+      <strong>How this works</strong>
+      <span>The UI dispatches the existing GitHub Actions workflow in <em>your</em> repository. It never asks for or stores your MuleSoft client secret.</span>
+    </section>
+
+    <section class="grid">
+      <div class="card setup">
+        <div class="step"><span>1</span><div><h2>Connect repository</h2><p>Use your fork/copy of this project.</p></div></div>
+        <label>GitHub repository</label>
+        <input id="repo" value="" placeholder="your-org/your-mule-control-repo" autocomplete="off">
+        <label>GitHub fine-grained token</label>
+        <input id="token" type="password" placeholder="ghp_… / github_pat_…" autocomplete="off">
+        <p class="hint">Required only in this browser session. It is sent directly to GitHub to dispatch the workflow and is not stored.</p>
+        <button id="connect" class="secondary">Test GitHub access</button>
+        <div id="connection" class="status hidden"></div>
+      </div>
+
+      <div class="card control">
+        <div class="step"><span>2</span><div><h2>Choose operation</h2><p>Select exactly what you want to control.</p></div></div>
+
+        <div class="field-row">
+          <div>
+            <label>Environment</label>
+            <select id="environment">
+              <option value="dev">DEV</option>
+              <option value="qa">QA</option>
+              <option value="sandbox">SANDBOX</option>
+              <option value="design">DESIGN</option>
+              <option value="prod">PROD</option>
+            </select>
+          </div>
+          <div>
+            <label>Action</label>
+            <select id="action">
+              <option value="start">START</option>
+              <option value="stop">STOP</option>
+            </select>
+          </div>
+        </div>
+
+        <label>Scope</label>
+        <div class="segmented">
+          <button class="seg active" data-scope="application">One application</button>
+          <button class="seg" data-scope="bulk">All applications</button>
+        </div>
+
+        <div id="app-wrap">
+          <label>Application name or ID</label>
+          <input id="application" placeholder="e.g. customer-api">
+        </div>
+
+        <label>Confirmation</label>
+        <input id="confirm" placeholder="Select the matching confirmation" readonly>
+
+        <button id="run" class="primary">Run MuleSoft control</button>
+        <div id="result" class="status hidden"></div>
+      </div>
+    </section>
+
+    <section class="card safety">
+      <div>
+        <h2>Security model</h2>
+        <p>CloudHub credentials are never entered here. Put <code>ANYPOINT_CLIENT_ID</code>, <code>ANYPOINT_CLIENT_SECRET</code>, and <code>ANYPOINT_ORG_ID</code> into the matching GitHub Environment in your own repository.</p>
+      </div>
+      <div class="checks">
+        <span>✓ No database</span><span>✓ No paid backend</span><span>✓ No MuleSoft secrets in UI</span><span>✓ Open source</span>
+      </div>
+    </section>
+
+    <footer>
+      <span>Free & open source • MIT License</span>
+      <a href="https://github.com/Narsing-s/ci-cd-mule-up-down/actions/workflows/mule-api-control.yml" target="_blank" rel="noreferrer">GitHub Actions</a>
+    </footer>
+  </main>
+  <script src="./app.js" defer></script>
+</body>
+</html>
