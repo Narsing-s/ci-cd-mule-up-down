@@ -319,11 +319,15 @@ jobs:
           set -euo pipefail
 
           expected="$ACTION"
-          max_attempts=12
+          max_attempts=24
+
+          echo "CloudHub 2.0 verification: waiting for application status to reach the requested state."
+          echo "For start, the required healthy state is RUNNING. APPLYING/APPLIED are not treated as running."
 
           for attempt in $(seq 1 "$max_attempts"); do
             echo "Verification attempt $attempt/$max_attempts"
             failed=0
+            pending=0
 
             while IFS="|" read -r name app_id old_status; do
               raw="$(anypoint-cli-v4 runtime-mgr:application:describe "$app_id" --output json 2>/dev/null || true)"
@@ -335,31 +339,94 @@ jobs:
               fi
 
               status="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("status") or d.get("Status") or d.get("application",{}).get("status") or "UNKNOWN").upper())' <<< "$raw" 2>/dev/null || echo UNKNOWN)"
-              replica_states="$(python3 -c 'import json,sys; d=json.load(sys.stdin); out=[]\ndef walk(v):\n  if isinstance(v,dict):\n    for k,x in v.items():\n      if k.lower() in ("state","status") and isinstance(x,str) and x.upper() in ("STARTED","RUNNING","STOPPED","STARTING","STOPPING","PENDING","FAILED","TERMINATED","RECOVERING"): out.append(x.upper())\n      walk(x)\n  elif isinstance(v,list):\n    for x in v: walk(x)\nwalk(d)\nprint(",".join(dict.fromkeys(out)))' <<< "$raw" 2>/dev/null || echo "")"
 
-              echo "$name => application=$status replicas=${replica_states:-NONE}"
+              echo "$name => $status"
+
+              if [ "$status" = "FAILED" ]; then
+                echo "::error::$name is FAILED in CloudHub 2.0."
+                python3 - "$name" "$raw" <<'PY'
+          import json, sys
+          name, raw = sys.argv[1], sys.argv[2]
+          try:
+              d = json.loads(raw)
+          except Exception:
+              print("Unable to parse describe response.")
+              raise SystemExit(0)
+
+          interesting = []
+          def walk(v, path="root"):
+              if isinstance(v, dict):
+                  for k, x in v.items():
+                      kl = k.lower()
+                      if kl in ("reason", "message", "error", "errormessage", "state", "status") and isinstance(x, (str, int, float, bool)):
+                          interesting.append((path + "." + k, str(x)))
+                      walk(x, path + "." + k)
+                  return
+              if isinstance(v, list):
+                  for i, x in enumerate(v):
+                      walk(x, f"{path}[{i}]")
+
+          walk(d)
+          seen = set()
+          print(f"Diagnostic details for {name}:")
+          for path, value in interesting:
+              item = f"{path} = {value}"
+              if item not in seen:
+                  seen.add(item)
+                  print("  " + item)
+          PY
+                failed=1
+                continue
+              fi
 
               if [ "$expected" = "start" ]; then
-                case ",$replica_states," in
-                  *,STARTED,*|*,RUNNING,*) ;;
-                  *) failed=1 ;;
+                case "$status" in
+                  RUNNING)
+                    ;;
+                  APPLYING|APPLIED|PENDING|STARTING|RECOVERING|STOPPING)
+                    pending=1
+                    ;;
+                  STOPPED|TERMINATED|DELETED|UNKNOWN)
+                    failed=1
+                    ;;
+                  *)
+                    pending=1
+                    ;;
                 esac
               else
-                case ",$replica_states," in
-                  *,STOPPED,*|*,TERMINATED,*|*,FAILED,*|",",) ;;
-                  *) failed=1 ;;
+                case "$status" in
+                  STOPPED|TERMINATED|DELETED)
+                    ;;
+                  STOPPING|APPLYING|PENDING)
+                    pending=1
+                    ;;
+                  RUNNING|STARTING|RECOVERING|FAILED|UNKNOWN)
+                    failed=1
+                    ;;
+                  *)
+                    pending=1
+                    ;;
                 esac
               fi
             done < applications.txt
 
-            if [ "$failed" -eq 0 ]; then
+            if [ "$failed" -eq 0 ] && [ "$pending" -eq 0 ]; then
               echo "## Result: SUCCESS" >> "$GITHUB_STEP_SUMMARY"
-              echo "All selected applications reached the requested state."
+              echo "All selected applications reached the requested CloudHub 2.0 state."
               exit 0
+            fi
+
+            if [ "$failed" -gt 0 ]; then
+              echo "::warning::One or more applications are not healthy in the requested state yet."
+            fi
+
+            if [ "$pending" -gt 0 ]; then
+              echo "Applications are still transitioning; waiting 10 seconds before the next check."
             fi
 
             sleep 10
           done
 
-          echo "::error::Not all selected applications reached the requested state."
+          echo "::error::Not all selected applications reached the requested CloudHub 2.0 state after $max_attempts verification attempts."
+          echo "Expected start state: RUNNING. Expected stop state: STOPPED."
           exit 1
