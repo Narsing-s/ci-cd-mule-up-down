@@ -279,12 +279,12 @@ jobs:
 
           while IFS="|" read -r name app_id status; do
             case "${status^^}" in
-              RUNNING|STARTED|DEPLOYED|APPLIED)
+              RUNNING|STARTED|DEPLOYED)
                 echo "Stopping: $name ($app_id)"
                 anypoint-cli-v4 runtime-mgr:application:stop "$app_id"
                 ;;
-              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING)
-                echo "Already stopped/not running: $name ($app_id)"
+              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING|APPLIED)
+                echo "Not currently running according to application status: $name ($app_id) => $status"
                 ;;
               *)
                 echo "::warning::Unknown status for $name: $status. Skipping."
@@ -300,11 +300,11 @@ jobs:
 
           while IFS="|" read -r name app_id status; do
             case "${status^^}" in
-              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING)
-                echo "Starting: $name ($app_id)"
+              STOPPED|DOWN|FAILED|UNDEPLOYED|NOT_RUNNING|APPLIED)
+                echo "Starting: $name ($app_id) (application status: $status)"
                 anypoint-cli-v4 runtime-mgr:application:start "$app_id"
                 ;;
-              RUNNING|STARTED|DEPLOYED|APPLIED)
+              RUNNING|STARTED|DEPLOYED)
                 echo "Already running: $name ($app_id)"
                 ;;
               *)
@@ -335,17 +335,18 @@ jobs:
               fi
 
               status="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("status") or d.get("Status") or d.get("application",{}).get("status") or "UNKNOWN").upper())' <<< "$raw" 2>/dev/null || echo UNKNOWN)"
+              replica_states="$(python3 -c 'import json,sys; d=json.load(sys.stdin); out=[]\ndef walk(v):\n  if isinstance(v,dict):\n    for k,x in v.items():\n      if k.lower() in ("state","status") and isinstance(x,str) and x.upper() in ("STARTED","RUNNING","STOPPED","STARTING","STOPPING","PENDING","FAILED","TERMINATED","RECOVERING"): out.append(x.upper())\n      walk(x)\n  elif isinstance(v,list):\n    for x in v: walk(x)\nwalk(d)\nprint(",".join(dict.fromkeys(out)))' <<< "$raw" 2>/dev/null || echo "")"
 
-              echo "$name => $status"
+              echo "$name => application=$status replicas=${replica_states:-NONE}"
 
               if [ "$expected" = "start" ]; then
-                case "$status" in
-                  RUNNING|STARTED|DEPLOYED|APPLIED) ;;
+                case ",$replica_states," in
+                  *,STARTED,*|*,RUNNING,*) ;;
                   *) failed=1 ;;
                 esac
               else
-                case "$status" in
-                  STOPPED|DOWN|UNDEPLOYED|NOT_RUNNING) ;;
+                case ",$replica_states," in
+                  *,STOPPED,*|*,TERMINATED,*|*,FAILED,*|",",) ;;
                   *) failed=1 ;;
                 esac
               fi
