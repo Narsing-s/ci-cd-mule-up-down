@@ -92,12 +92,44 @@ jobs:
             exit 1
           fi
 
-          echo "GitHub/Anypoint environment: ${{ inputs.environment }}"
+          echo "============================================================"
+          case "${{ inputs.environment }}" in
+            dev) echo "::notice::🔵 TARGET ENVIRONMENT: DEV — GitHub Environment [dev]" ;;
+            qa) echo "::notice::🟡 TARGET ENVIRONMENT: QA — GitHub Environment [qa]" ;;
+            sandbox) echo "::notice::🟣 TARGET ENVIRONMENT: SANDBOX — GitHub Environment [sandbox]" ;;
+            design) echo "::notice::🟠 TARGET ENVIRONMENT: DESIGN — GitHub Environment [design]" ;;
+            prod) echo "::warning::🔴 TARGET ENVIRONMENT: PRODUCTION — GitHub Environment [prod]" ;;
+          esac
+          echo "Environment: ${{ inputs.environment }}"
           echo "Action: $ACTION"
           echo "Scope: $SCOPE"
           echo "Application: ${REQUESTED_APPLICATION:-ALL}"
           echo "Confirmation: $CONFIRMATION"
+          echo "============================================================"
+          echo "Environment-specific GitHub secrets: ${{ inputs.environment }}"
 
+      - name: Show target environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## 🎯 MuleSoft Control Target"
+            echo ""
+            case "${{ inputs.environment }}" in
+              dev) echo "### 🔵 DEV" ;;
+              qa) echo "### 🟡 QA" ;;
+              sandbox) echo "### 🟣 SANDBOX" ;;
+              design) echo "### 🟠 DESIGN" ;;
+              prod) echo "### 🔴 PRODUCTION" ;;
+            esac
+            echo ""
+            echo "| Setting | Value |"
+            echo "|---|---|"
+            echo "| Environment | **${{ inputs.environment }}** |"
+            echo "| Action | **${ACTION}** |"
+            echo "| Scope | **${SCOPE}** |"
+            echo "| Application | **${REQUESTED_APPLICATION:-ALL}** |"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Install Anypoint CLI
         shell: bash
         run: |
@@ -110,7 +142,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Testing Connected App authentication..."
+          echo "============================================================"
+          echo "🔐 CONNECTED APP AUTHENTICATION"
+          echo "Target environment: ${{ inputs.environment }}"
+          echo "Token endpoint: https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token"
+          echo "============================================================"
+          response="$(curl -sS -w '\n%{http_code}' -X POST \"https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token\" -H \"Content-Type: application/x-www-form-urlencoded\" --data-urlencode \"grant_type=client_credentials\" --data-urlencode \"client_id=${ANYPOINT_CLIENT_ID}\" --data-urlencode \"client_secret=${ANYPOINT_CLIENT_SECRET}\")"
+          status="$(printf "%s\n" "$response" | tail -n1)"
+          body="$(printf "%s\n" "$response" | sed '$d')"
+          if [ "$status" != "200" ]; then
+            error_code="$(printf "%s" "$body" | jq -r ".error // empty" 2>/dev/null || true)"
+            error_description="$(printf "%s" "$body" | jq -r ".error_description // .message // empty" 2>/dev/null || true)"
+            echo "::error::${{ inputs.environment }} Connected App authentication failed: HTTP $status."
+            [ -n "$error_code" ] && echo "::error::Anypoint error: $error_code"
+            [ -n "$error_description" ] && echo "::error::Anypoint message: $error_description"
+            echo "::error::Check ANYPOINT_CLIENT_ID/ANYPOINT_CLIENT_SECRET in GitHub Environment ${{ inputs.environment }}."
+            echo "::error::Verify the Connected App is active and authorized for this organization."
+            exit 1
+          fi
+          token="$(printf "%s" "$body" | jq -r ".access_token // empty")"
+          test -n "$token" || { echo "::error::Anypoint returned HTTP 200 but no access_token."; exit 1; }
+          echo "::notice::${{ inputs.environment }} Connected App authentication successful."
 
           # List environments without ANYPOINT_ENV so the CLI does not try
           # to select the target environment before we can validate its name.
