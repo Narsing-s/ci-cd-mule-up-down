@@ -324,10 +324,13 @@ jobs:
           echo "CloudHub 2.0 verification: waiting for application status to reach the requested state."
           echo "For start, the required healthy state is RUNNING. APPLYING/APPLIED are not treated as running."
 
+          : > final-status.txt
+
           for attempt in $(seq 1 "$max_attempts"); do
             echo "Verification attempt $attempt/$max_attempts"
             failed=0
             pending=0
+            : > final-status.txt
 
             while IFS="|" read -r name app_id old_status; do
               raw="$(anypoint-cli-v4 runtime-mgr:application:describe "$app_id" --output json 2>/dev/null || true)"
@@ -341,6 +344,7 @@ jobs:
               status="$(python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("status") or d.get("Status") or d.get("application",{}).get("status") or "UNKNOWN").upper())' <<< "$raw" 2>/dev/null || echo UNKNOWN)"
 
               echo "$name => $status"
+              printf '%s|%s|%s\n' "$name" "$app_id" "$status" >> final-status.txt
 
               if [ "$status" = "FAILED" ]; then
                 echo "::error::$name is FAILED in CloudHub 2.0."
@@ -412,6 +416,12 @@ jobs:
 
             if [ "$failed" -eq 0 ] && [ "$pending" -eq 0 ]; then
               echo "## Result: SUCCESS" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Application | CloudHub 2.0 status |" >> "$GITHUB_STEP_SUMMARY"
+              echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+              while IFS="|" read -r name app_id status; do
+                echo "| $name | **$status** |" >> "$GITHUB_STEP_SUMMARY"
+              done < final-status.txt
               echo "All selected applications reached the requested CloudHub 2.0 state."
               exit 0
             fi
@@ -427,6 +437,14 @@ jobs:
             sleep 10
           done
 
+          echo "## Final API Status" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Application | Actual CloudHub 2.0 status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          while IFS="|" read -r name app_id status; do
+            echo "| $name | **$status** |" >> "$GITHUB_STEP_SUMMARY"
+          done < final-status.txt
+
           echo "::error::Not all selected applications reached the requested CloudHub 2.0 state after $max_attempts verification attempts."
-          echo "Expected start state: RUNNING. Expected stop state: STOPPED."
+          echo "The workflow reports the actual status returned by CloudHub 2.0: RUNNING, APPLYING, FAILED, STOPPED, etc."
           exit 1
