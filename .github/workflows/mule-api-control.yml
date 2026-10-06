@@ -114,7 +114,7 @@ jobs:
           # Credentials are supplied through ANYPOINT_CLIENT_ID,
           # ANYPOINT_CLIENT_SECRET and ANYPOINT_ORG.
           # The secret is never printed.
-          anypoint-cli-v4 account:environment:list --output json > /tmp/anypoint-environments.json
+          env -u ANYPOINT_ENV anypoint-cli-v4 account:environment:list --output json > /tmp/anypoint-environments.json
 
           test -s /tmp/anypoint-environments.json
 
