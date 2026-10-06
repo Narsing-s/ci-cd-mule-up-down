@@ -422,6 +422,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
 
@@ -445,7 +446,7 @@ jobs:
               "runNumber": int(os.environ["GITHUB_RUN_NUMBER"]),
               "repository": os.environ["GITHUB_REPOSITORY"],
               "environment": os.environ["ANYPOINT_ENV"],
-              "requestedEnvironment": os.environ["INPUT_ENVIRONMENT"],
+              "requestedEnvironment": os.environ["REQUESTED_ENVIRONMENT"],
               "action": os.environ["ACTION"],
               "scope": os.environ["SCOPE"],
               "application": os.environ.get("REQUESTED_APPLICATION", ""),
