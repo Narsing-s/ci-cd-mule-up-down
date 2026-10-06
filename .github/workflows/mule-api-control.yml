@@ -111,14 +111,32 @@ jobs:
 
           echo "Testing Connected App authentication..."
 
-          # Credentials are supplied through ANYPOINT_CLIENT_ID,
-          # ANYPOINT_CLIENT_SECRET and ANYPOINT_ORG.
-          # The secret is never printed.
+          # List environments without ANYPOINT_ENV so the CLI does not try
+          # to select the target environment before we can validate its name.
           env -u ANYPOINT_ENV anypoint-cli-v4 account:environment:list --output json > /tmp/anypoint-environments.json
-
           test -s /tmp/anypoint-environments.json
 
           echo "Anypoint Platform authentication successful."
+
+          echo "Available Anypoint environments visible to this Connected App:"
+          python3 - /tmp/anypoint-environments.json <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as f:
+              data = json.load(f)
+          seen = set()
+          def walk(v):
+              if isinstance(v, dict):
+                  yield v
+                  for x in v.values(): yield from walk(x)
+              elif isinstance(v, list):
+                  for x in v: yield from walk(x)
+          for obj in walk(data):
+              for key in ("name", "environmentName"):
+                  value = obj.get(key)
+                  if value and str(value).strip() not in seen:
+                      seen.add(str(value).strip())
+                      print(f"  - {str(value).strip()}")
+          PY
 
       - name: Verify selected environment
         shell: bash
