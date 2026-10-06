@@ -147,7 +147,7 @@ jobs:
           echo "Target environment: ${{ inputs.environment }}"
           echo "Token endpoint: https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token"
           echo "============================================================"
-          response="$(curl -sS -w '\n%{http_code}' -X POST \"https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token\" -H \"Content-Type: application/x-www-form-urlencoded\" --data-urlencode \"grant_type=client_credentials\" --data-urlencode \"client_id=${ANYPOINT_CLIENT_ID}\" --data-urlencode \"client_secret=${ANYPOINT_CLIENT_SECRET}\")"
+          response="$(curl -sS -w '\n%{http_code}' -X POST "https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "grant_type=client_credentials" --data-urlencode "client_id=${ANYPOINT_CLIENT_ID}" --data-urlencode "client_secret=${ANYPOINT_CLIENT_SECRET}")"
           status="$(printf "%s\n" "$response" | tail -n1)"
           body="$(printf "%s\n" "$response" | sed '$d')"
           if [ "$status" != "200" ]; then
