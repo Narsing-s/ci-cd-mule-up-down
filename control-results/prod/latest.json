@@ -1,17 +1,17 @@
 {
-  "runId": 37475452494,
-  "runNumber": 39,
+  "runId": 37492972899,
+  "runNumber": 61,
   "repository": "Narsing-s/ci-cd-mule-up-down",
   "environment": "prod",
   "requestedEnvironment": "prod",
-  "action": "stop",
+  "action": "start",
   "scope": "bulk",
   "application": "",
-  "completedAt": "2026-10-06T14:06:07.419256+00:00",
+  "completedAt": "2026-10-06T16:08:34.271544+00:00",
   "summary": {
     "total": 3,
-    "success": 0,
-    "skipped": 3,
+    "success": 3,
+    "skipped": 0,
     "running": 0,
     "stopped": 0,
     "notRunning": 3,
@@ -21,20 +21,20 @@
     {
       "name": "birthday-wish-notification-api-east",
       "id": "9fa21a3b-ede9-4ada-ba08-c8ab270d1f5d",
-      "status": "APPLIED",
-      "result": "SKIPPED"
+      "status": "STARTED",
+      "result": "SUCCESS"
     },
     {
       "name": "birthday-wish-notification-api-west",
       "id": "0690ae18-2f20-498b-8d50-db729b44b564",
-      "status": "APPLIED",
-      "result": "SKIPPED"
+      "status": "STARTED",
+      "result": "SUCCESS"
     },
     {
       "name": "birthday-wish-notification-api-westb",
       "id": "345022b6-fc4f-4f2c-9051-e5ac38f9f8c2",
-      "status": "APPLIED",
-      "result": "SKIPPED"
+      "status": "STARTED",
+      "result": "SUCCESS"
     }
   ]
 }
