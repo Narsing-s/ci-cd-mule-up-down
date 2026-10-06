@@ -361,8 +361,8 @@ jobs:
           import time
 
           action = __import__("os").environ["ACTION"].upper()
-          attempts = 6
           retry_seconds = 10
+          max_wait_seconds = 25 * 60
           lock = threading.Lock()
 
           rows = []
