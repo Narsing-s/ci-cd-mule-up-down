@@ -59,7 +59,6 @@ jobs:
       ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
       ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
       ANYPOINT_ORG: ${{ secrets.ANYPOINT_ORG_ID }}
-      ANYPOINT_ENV: ${{ secrets.CLOUDHUB_ENVIRONMENT }}
       ANYPOINT_HOST: anypoint.mulesoft.com
 
       ACTION: ${{ inputs.action }}
@@ -79,7 +78,7 @@ jobs:
             exit 1
           fi
 
-          for name in ANYPOINT_CLIENT_ID ANYPOINT_CLIENT_SECRET ANYPOINT_ORG ANYPOINT_ENV; do
+          for name in ANYPOINT_CLIENT_ID ANYPOINT_CLIENT_SECRET ANYPOINT_ORG; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Missing GitHub Environment secret/value: $name"
               exit 1
@@ -138,22 +137,33 @@ jobs:
                       print(f"  - {str(value).strip()}")
           PY
 
-      - name: Verify selected environment
+      - name: Resolve Anypoint environment from GitHub environment
         shell: bash
         run: |
           set -euo pipefail
 
-          python3 - "$ANYPOINT_ENV" /tmp/anypoint-environments.json <<'PY'
+          python3 - "$GITHUB_ENV" "${{ inputs.environment }}" /tmp/anypoint-environments.json <<'PY'
           import json
           import sys
 
-          expected = sys.argv[1]
-          path = sys.argv[2]
+          github_env = sys.argv[2].strip().lower()
+          github_file = sys.argv[1]
+          path = sys.argv[3]
+
+          aliases = {
+              "dev": {"dev", "development"},
+              "qa": {"qa", "quality assurance"},
+              "uat": {"uat", "user acceptance testing", "user acceptance"},
+              "sandbox": {"sandbox"},
+              "prod": {"prod", "production"},
+          }
+          wanted = aliases.get(github_env, {github_env})
 
           with open(path, encoding="utf-8") as f:
               data = json.load(f)
 
-          found = False
+          names = []
+          seen = set()
 
           def walk(value):
               if isinstance(value, dict):
@@ -167,17 +177,31 @@ jobs:
           for obj in walk(data):
               for key in ("name", "environmentName"):
                   value = obj.get(key)
-                  if value is not None and str(value).strip().lower() == expected.strip().lower():
-                      found = True
-                      break
-              if found:
-                  break
+                  if value:
+                      name = str(value).strip()
+                      if name and name.lower() not in seen:
+                          seen.add(name.lower())
+                          names.append(name)
 
-          if not found:
-              print(f"::error::Anypoint environment '{expected}' was not found for the configured organization.")
-              sys.exit(1)
+          matches = [name for name in names if name.lower() in wanted]
 
-          print(f"Anypoint environment '{expected}' is available.")
+          if not matches:
+              print("::error::Could not map GitHub environment '" + github_env + "' to an Anypoint environment.")
+              print("Available Anypoint environments:")
+              for name in names:
+                  print("  - " + name)
+              sys.exit(2)
+
+          if len(matches) > 1:
+              print("::error::Multiple Anypoint environments match '" + github_env + "': " + ", ".join(matches))
+              sys.exit(2)
+
+          selected = matches[0]
+
+          with open(github_file, "a", encoding="utf-8") as f:
+              f.write("ANYPOINT_ENV=" + selected + "\n")
+
+          print("GitHub environment '" + github_env + "' mapped to Anypoint environment '" + selected + "'.")
           PY
 
       - name: Resolve target applications
