@@ -127,7 +127,6 @@
       const [owner,name]=parseRepo(repo.value);
       setStatus(connection,"info","Checking repository access and workflow permissions…");
       const r=await github("/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(name));
-      if(r.private && !r.permissions?.push) throw new Error("You can read this repository but your token does not have push/write access.");
       const workflow=await github("/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(name)+"/actions/workflows/mule-api-control.yml");
       if(workflow.state!=="active") throw new Error("The MuleSoft workflow exists but is not active.");
       setStatus(connection,"ok","GitHub access OK. Repository: "+r.full_name+" • Workflow: active. You can run the control operation.");
