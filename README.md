@@ -13,8 +13,11 @@ The existing control workflow supports:
 - Start all APIs in one selected environment
 - Stop all APIs in one selected environment
 - Environment-wise control
-- Current-status check before changing anything
-- Final-state verification
+- CloudHub 2.0 deployment-state and desired-state aware control
+- Idempotent current-state check before changing anything
+- Final desired-state and deployment-state verification
+- Concurrent bulk processing so one slow API does not block the others
+- Explicit failed-result reporting so a green workflow cannot falsely mean every API changed state
 - GitHub Environment protection for production
 - GitHub Actions UI for selecting the operation
 
@@ -44,6 +47,8 @@ You do **not** need access to the maintainer's GitHub secrets.
 If this repository is configured as a GitHub Template Repository, choose **Use this template** and create your own repository. Then complete the same Environment and secret setup above.
 
 The workflow itself remains in your repository, so the Actions UI and credentials belong to you.
+
+For application scope, the Application field accepts one application name/ID or a comma-separated list of names/IDs.
 
 ## Required credentials
 
@@ -105,7 +110,7 @@ Available selections:
 action      = stop
 scope       = application
 environment = qa
-application = customer-api
+application = customer-api[, another-api]
 confirm     = CONFIRM_STOP
 ```
 
@@ -157,6 +162,12 @@ START / STOP + state verification
 ```
 
 The upstream open-source project is only the workflow source. Each user operates an independent copy against their own MuleSoft organization.
+
+### CloudHub 2.0 state handling
+
+CloudHub 2.0 exposes deployment state separately from the application's desired runtime state. The workflow reads `application.desiredState` and the deployment state instead of treating `APPLIED` as `RUNNING`. `START` is successful only when the desired state is `STARTED` and deployment state is `APPLIED`; `STOP` is successful only when the desired state is `STOPPED` and deployment state is `APPLIED`.
+
+If an application remains in a failed deployment state, the workflow records the CLI error and marks that application as failed. It does not pretend the API is running, and it does not invent a deployment artifact to recover a failed deployment.
 
 ## Security model
 
