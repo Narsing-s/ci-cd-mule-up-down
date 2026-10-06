@@ -52,7 +52,7 @@ jobs:
   control:
     name: "${{ inputs.action }} APIs in ${{ inputs.environment }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     environment: ${{ inputs.environment }}
 
     env:
@@ -444,7 +444,11 @@ jobs:
               name, app_id, old_status = row
               last_error = ""
 
-              for attempt in range(1, attempts + 1):
+              started_wait = time.monotonic()
+              attempt = 0
+
+              while True:
+                  attempt += 1
                   info = inspect(app_id)
                   desired = info["desired"]
                   deployment = info["deployment"]
@@ -453,7 +457,7 @@ jobs:
                   with lock:
                       print(
                           f"{name} => deployment={deployment}, desired={desired} "
-                          f"(attempt {attempt}/{attempts})",
+                          f"(poll {attempt}, elapsed={int(time.monotonic() - started_wait)}s)",
                           flush=True
                       )
 
@@ -495,8 +499,21 @@ jobs:
                               flush=True
                           )
 
-                  if attempt < attempts:
-                      time.sleep(retry_seconds)
+                  elapsed = time.monotonic() - started_wait
+                  if elapsed >= max_wait_seconds:
+                      last_error = last_error or (
+                          f"Timed out after {int(elapsed)} seconds waiting for "
+                          f"{wanted}/APPLIED"
+                      )
+                      with lock:
+                          print(
+                              f"WARNING: {name} did not reach {wanted}/APPLIED "
+                              f"within the lifecycle wait window.",
+                              flush=True,
+                          )
+                      break
+
+                  time.sleep(retry_seconds)
 
               final_info = inspect(app_id)
               final_status = final_info["desired"]
