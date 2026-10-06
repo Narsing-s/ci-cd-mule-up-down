@@ -1,16 +1,16 @@
 {
-  "runId": 37488332049,
-  "runNumber": 52,
+  "runId": 37489000555,
+  "runNumber": 53,
   "repository": "Narsing-s/ci-cd-mule-up-down",
   "environment": "dev",
   "requestedEnvironment": "dev",
   "action": "start",
   "scope": "bulk",
   "application": "",
-  "completedAt": "2026-10-06T15:34:10.855538+00:00",
+  "completedAt": "2026-10-06T15:37:36.613566+00:00",
   "summary": {
     "total": 4,
-    "success": 1,
+    "success": 4,
     "skipped": 0,
     "running": 0,
     "stopped": 0,
@@ -19,26 +19,26 @@
   },
   "applications": [
     {
-      "name": "monthly-bank-satement-generate-api",
-      "id": "97b57bfa-4f64-4d0a-8ac9-5ac134e93469",
-      "status": "STARTED/APPLYING",
-      "result": "FAILED"
-    },
-    {
-      "name": "dream-bank-sapi",
-      "id": "a292a0e1-d354-4845-bdb9-13bbedac3c91",
-      "status": "STARTED/APPLYING",
-      "result": "FAILED"
-    },
-    {
       "name": "universal-banking-birthday-wishes",
       "id": "ddb5d1e9-61c0-4b83-8e51-44ed65dc7394",
-      "status": "STARTED/APPLYING",
-      "result": "FAILED"
+      "status": "STARTED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "monthly-bank-satement-generate-api",
+      "id": "97b57bfa-4f64-4d0a-8ac9-5ac134e93469",
+      "status": "STARTED",
+      "result": "SUCCESS"
     },
     {
       "name": "integration-with-ai-api",
       "id": "fab6223a-3d0d-4d5b-8e8e-b87a116bae77",
+      "status": "STARTED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "dream-bank-sapi",
+      "id": "a292a0e1-d354-4845-bdb9-13bbedac3c91",
       "status": "STARTED",
       "result": "SUCCESS"
     }
