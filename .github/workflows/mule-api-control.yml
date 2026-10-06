@@ -24,8 +24,8 @@ on:
         options:
           - dev
           - qa
-          - uat
           - sandbox
+          - design
           - prod
       application:
         description: "Application name for application scope. Leave blank for bulk."
@@ -90,7 +90,7 @@ jobs:
             exit 1
           fi
 
-          echo "Environment: $ANYPOINT_ENV"
+          echo "GitHub/Anypoint environment: ${{ inputs.environment }}"
           echo "Action: $ACTION"
           echo "Scope: $SCOPE"
           echo "Application: ${REQUESTED_APPLICATION:-ALL}"
@@ -137,7 +137,7 @@ jobs:
                       print(f"  - {str(value).strip()}")
           PY
 
-      - name: Resolve Anypoint environment from GitHub environment
+      - name: Resolve exact Anypoint environment
         shell: bash
         run: |
           set -euo pipefail
@@ -146,18 +146,9 @@ jobs:
           import json
           import sys
 
-          github_env = sys.argv[2].strip().lower()
+          github_env = sys.argv[2].strip()
           github_file = sys.argv[1]
           path = sys.argv[3]
-
-          aliases = {
-              "dev": {"dev", "development"},
-              "qa": {"qa", "quality assurance"},
-              "uat": {"uat", "user acceptance testing", "user acceptance"},
-              "sandbox": {"sandbox"},
-              "prod": {"prod", "production"},
-          }
-          wanted = aliases.get(github_env, {github_env})
 
           with open(path, encoding="utf-8") as f:
               data = json.load(f)
@@ -183,25 +174,20 @@ jobs:
                           seen.add(name.lower())
                           names.append(name)
 
-          matches = [name for name in names if name.lower() in wanted]
+          matches = [name for name in names if name.lower() == github_env.lower()]
 
           if not matches:
-              print("::error::Could not map GitHub environment '" + github_env + "' to an Anypoint environment.")
+              print(f"::error::Anypoint environment '{github_env}' was not found.")
               print("Available Anypoint environments:")
               for name in names:
                   print("  - " + name)
               sys.exit(2)
 
-          if len(matches) > 1:
-              print("::error::Multiple Anypoint environments match '" + github_env + "': " + ", ".join(matches))
-              sys.exit(2)
-
           selected = matches[0]
-
           with open(github_file, "a", encoding="utf-8") as f:
               f.write("ANYPOINT_ENV=" + selected + "\n")
 
-          print("GitHub environment '" + github_env + "' mapped to Anypoint environment '" + selected + "'.")
+          print(f"Using exact Anypoint environment: {selected}")
           PY
 
       - name: Resolve target applications
