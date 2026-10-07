@@ -1,81 +1,81 @@
 {
-  "runId": 37610995916,
-  "runNumber": 64,
+  "runId": 37611275680,
+  "runNumber": 67,
   "repository": "Narsing-s/ci-cd-mule-up-down",
   "environment": "Sandbox",
   "requestedEnvironment": "sandbox",
-  "action": "stop",
+  "action": "start",
   "scope": "bulk",
   "application": "",
-  "completedAt": "2026-10-07T10:59:56.964035+00:00",
+  "completedAt": "2026-10-07T11:03:52.569088+00:00",
   "summary": {
     "total": 10,
     "success": 10,
     "skipped": 0,
     "running": 0,
-    "stopped": 10,
+    "stopped": 0,
     "notRunning": 10,
     "unknown": 0
   },
   "applications": [
     {
-      "name": "maths-table",
-      "id": "7e89b795-ad54-4aac-8df9-47a2bf0db1ea",
-      "status": "STOPPED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "sch-real-bank-api",
-      "id": "e034c631-2244-46fc-9bb3-11b96e083dcc",
-      "status": "STOPPED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "loan-scheduler",
-      "id": "749f6a85-13e3-4a12-b615-f98a4275052a",
-      "status": "STOPPED",
+      "name": "birthday-notification-api",
+      "id": "db28314d-0739-44af-bd57-f123706c37d2",
+      "status": "STARTED",
       "result": "SUCCESS"
     },
     {
       "name": "policies-demo-api",
       "id": "37dba007-f55f-4228-a9be-326d60f02377",
-      "status": "STOPPED",
+      "status": "STARTED",
       "result": "SUCCESS"
     },
     {
       "name": "calculator-api",
       "id": "26ba875f-1959-451f-bcb2-ff66001276c6",
-      "status": "STOPPED",
+      "status": "STARTED",
       "result": "SUCCESS"
     },
     {
-      "name": "downloadflow-emp-excel-file",
-      "id": "a6535eaa-83fb-4c6f-b30e-c185a832c662",
-      "status": "STOPPED",
+      "name": "loan-scheduler",
+      "id": "749f6a85-13e3-4a12-b615-f98a4275052a",
+      "status": "STARTED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "sch-real-bank-api",
+      "id": "e034c631-2244-46fc-9bb3-11b96e083dcc",
+      "status": "STARTED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "maths-table",
+      "id": "7e89b795-ad54-4aac-8df9-47a2bf0db1ea",
+      "status": "STARTED",
       "result": "SUCCESS"
     },
     {
       "name": "intrest-calculator-api",
       "id": "019ad628-f705-48ac-88f6-53b8eb7be2ea",
-      "status": "STOPPED",
-      "result": "SUCCESS"
-    },
-    {
-      "name": "birthday-notification-api",
-      "id": "db28314d-0739-44af-bd57-f123706c37d2",
-      "status": "STOPPED",
+      "status": "STARTED",
       "result": "SUCCESS"
     },
     {
       "name": "salesforce-contact-sapi",
       "id": "bfe05dc9-461d-453c-be86-814d5171d7f0",
-      "status": "STOPPED",
+      "status": "STARTED",
+      "result": "SUCCESS"
+    },
+    {
+      "name": "downloadflow-emp-excel-file",
+      "id": "a6535eaa-83fb-4c6f-b30e-c185a832c662",
+      "status": "STARTED",
       "result": "SUCCESS"
     },
     {
       "name": "transform-json-to-excel",
       "id": "c55ad60a-c64f-4f6d-85bb-a377534b52e3",
-      "status": "STOPPED",
+      "status": "STARTED",
       "result": "SUCCESS"
     }
   ]
