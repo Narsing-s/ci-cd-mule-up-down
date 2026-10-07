@@ -106,12 +106,34 @@
         <div class="metric"><span>Stopped / Not running</span><strong id="m-stopped">—</strong></div>
         <div class="metric"><span>Unknown</span><strong id="m-unknown">—</strong></div>
       </div>
+      <div class="analytics-tools">
+        <input id="api-search" placeholder="Search API name or ID…" autocomplete="off">
+        <select id="api-filter">
+          <option value="all">All results</option>
+          <option value="success">Successful</option>
+          <option value="failed">Failed</option>
+          <option value="running">Running</option>
+          <option value="stopped">Stopped</option>
+          <option value="unknown">Unknown</option>
+        </select>
+        <span id="api-count" class="hint">0 APIs</span>
+      </div>
       <div class="analytics-table-wrap">
         <table class="analytics-table">
-          <thead><tr><th>API</th><th>Final status</th><th>Result</th></tr></thead>
-          <tbody id="analytics-body"><tr><td colspan="3">Run START or STOP to populate results.</td></tr></tbody>
+          <thead><tr><th>API / Application</th><th>ID</th><th>Final status</th><th>Result</th></tr></thead>
+          <tbody id="analytics-body"><tr><td colspan="4">Run START or STOP to populate results.</td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <section class="card public-use">
+      <h2>How this free tool works</h2>
+      <div class="checks">
+        <span>✓ Your GitHub repository</span><span>✓ Your GitHub Environment secrets</span>
+        <span>✓ Your Anypoint Connected App</span><span>✓ No shared MuleSoft credentials</span>
+        <span>✓ No database / backend</span><span>✓ Open-source workflow</span>
+      </div>
+      <p class="hint">Each user keeps their own Client ID, Client Secret, Organization ID and GitHub access. The UI never stores MuleSoft credentials. Control execution happens in the user's GitHub Actions runner.</p>
     </section>
 
     <section class="card safety">
