@@ -33,15 +33,6 @@ on:
         description: "Application name for application scope. Leave blank for bulk."
         required: false
         type: string
-      execution_time:
-        description: "India execution time (HH:MM, Asia/Kolkata). Leave blank to run immediately."
-        required: false
-        type: string
-      timezone:
-        description: "Execution timezone (must be exactly Asia/Kolkata)"
-        required: false
-        default: "Asia/Kolkata"
-        type: string
       confirm:
         description: "Confirmation — select the matching confirmation"
         required: true
@@ -61,7 +52,7 @@ jobs:
   control:
     name: "${{ inputs.action }} APIs in ${{ inputs.environment }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 1440
+    timeout-minutes: 30
     environment: ${{ inputs.environment }}
 
     env:
@@ -76,8 +67,6 @@ jobs:
       SCOPE: ${{ inputs.scope }}
       REQUESTED_APPLICATION: ${{ inputs.application }}
       CONFIRMATION: ${{ inputs.confirm }}
-      EXECUTION_TIME: ${{ inputs.execution_time }}
-      EXECUTION_TIMEZONE: ${{ inputs.timezone }}
 
     steps:
       - name: Validate request and credentials
@@ -143,52 +132,6 @@ jobs:
             echo "| Scope | **${SCOPE}** |"
             echo "| Application | **${REQUESTED_APPLICATION:-ALL}** |"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Wait until configured India time
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          timezone="$(printf "%s" "${EXECUTION_TIMEZONE:-Asia/Kolkata}" | tr -d '\r\n' | xargs)"
-          execution_time="$(printf "%s" "${EXECUTION_TIME:-}" | tr -d '\r\n' | xargs)"
-
-          if [ "$timezone" != "Asia/Kolkata" ]; then
-            echo "::error::Only Asia/Kolkata is supported; found '$timezone'"
-            exit 1
-          fi
-
-          if [ -z "$execution_time" ]; then
-            echo "::notice::No execution time configured; continuing immediately."
-            exit 0
-          fi
-
-          if ! [[ "$execution_time" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
-            echo "::error::execution_time must be HH:MM, for example 13:30."
-            exit 1
-          fi
-
-          python3 - "$execution_time" <<'PY'
-          from datetime import datetime, timedelta
-          from zoneinfo import ZoneInfo
-          import sys, time
-          target_text = sys.argv[1].strip()
-          tz = ZoneInfo("Asia/Kolkata")
-          now = datetime.now(tz)
-          hour, minute = map(int, target_text.split(":"))
-          target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-          if target <= now:
-              target += timedelta(days=1)
-          seconds = max(0, int((target - now).total_seconds()))
-          print(f"Queued at {now.isoformat()}")
-          print(f"Configured execution time: {target.isoformat()}")
-          print(f"Waiting {seconds} seconds until execution time.")
-          while seconds > 0:
-              chunk = min(seconds, 60)
-              time.sleep(chunk)
-              seconds -= chunk
-              if seconds > 0:
-                  print(f"Still waiting: {seconds} seconds remaining.", flush=True)
-          print(f"Execution window reached: {datetime.now(tz).isoformat()}")
-          PY
       - name: Install Anypoint CLI
         shell: bash
         run: |
