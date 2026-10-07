@@ -70,7 +70,11 @@
         </select>
         <p class="hint">The workflow rejects a mismatched confirmation, so this field is intentionally selectable for validation testing.</p>
 
-        <button id="run" class="primary">Run MuleSoft control</button>
+        <label>Execute at (Asia/Kolkata)</label>
+        <input id="execute-at" type="datetime-local" step="60">
+        <p class="hint">The workflow is triggered immediately and waits until this time. Leave blank to execute immediately. No cron is used.</p>
+
+        <button id="run" class="primary">Queue MuleSoft control</button>
         <div id="result" class="status hidden"></div>
       </div>
     </section>
