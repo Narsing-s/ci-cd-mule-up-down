@@ -40,6 +40,10 @@ on:
         options:
           - CONFIRM_START
           - CONFIRM_STOP
+      execute_at:
+        description: "Scheduled execution time in Asia/Kolkata (YYYY-MM-DDTHH:MM). The workflow starts immediately and waits until this time."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -67,6 +71,7 @@ jobs:
       SCOPE: ${{ inputs.scope }}
       REQUESTED_APPLICATION: ${{ inputs.application }}
       CONFIRMATION: ${{ inputs.confirm }}
+      EXECUTE_AT: ${{ inputs.execute_at }}
 
     steps:
       - name: Validate request and credentials
@@ -109,6 +114,36 @@ jobs:
           echo "Confirmation: $CONFIRMATION"
           echo "============================================================"
           echo "Environment-specific GitHub secrets: ${{ inputs.environment }}"
+
+      - name: Wait until configured execution time
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${EXECUTE_AT:-}" ]; then
+            echo "No execute_at supplied; continuing immediately."
+            exit 0
+          fi
+          python3 - <<'PY'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import os, time
+          raw = os.environ["EXECUTE_AT"].strip()
+          target = datetime.fromisoformat(raw)
+          if target.tzinfo is None:
+              target = target.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+          else:
+              target = target.astimezone(ZoneInfo("Asia/Kolkata"))
+          now = datetime.now(ZoneInfo("Asia/Kolkata"))
+          seconds = (target - now).total_seconds()
+          print(f"Configured execution time: {target.isoformat()}")
+          print(f"Current Asia/Kolkata time: {now.isoformat()}")
+          if seconds > 0:
+              print(f"Waiting {int(seconds)} seconds until the configured time...")
+              time.sleep(seconds)
+          else:
+              print("Configured execution time has already arrived; continuing immediately.")
+          print("Execution window reached. Continuing with MuleSoft control.")
+          PY
 
       - name: Show target environment
         shell: bash
