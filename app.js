@@ -1,7 +1,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const repo=$("repo"), token=$("token"), environment=$("environment"), action=$("action");
-  const application=$("application"), confirm=$("confirm"), run=$("run");
+  const application=$("application"), confirm=$("confirm"), executeAt=$("execute-at"), run=$("run");
   const connection=$("connection"), result=$("result"), appWrap=$("app-wrap");
   const analyticsStatus=$("analytics-status"), analyticsBody=$("analytics-body");
   let scope="application";
@@ -140,13 +140,13 @@
       if(confirm.value!==expectedConfirmation()) throw new Error("Confirmation mismatch. For "+action.value.toUpperCase()+" select "+expectedConfirmation()+".");
       if(!token.value.trim()) throw new Error("GitHub token is required.");
       run.disabled=true;
-      setStatus(result,"info","Dispatching GitHub Actions workflow…");
-      const inputs={action:action.value,scope,environment:environment.value,application:scope==="application"?application.value.trim():"",confirm:confirm.value};
+      setStatus(result,"info",executeAt.value.trim() ? "Dispatching workflow now; it will wait until the configured Asia/Kolkata time…" : "Dispatching GitHub Actions workflow…");
+      const inputs={action:action.value,scope,environment:environment.value,application:scope==="application"?application.value.trim():"",confirm:confirm.value,execute_at:executeAt.value.trim()};
       const startedAt=new Date().toISOString();
       await github("/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(name)+"/actions/workflows/mule-api-control.yml/dispatches",{
         method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ref:"main",inputs})
       });
-      setStatus(result,"info","Workflow dispatched. Waiting for CloudHub 2.0 control execution and final API statistics…");
+      setStatus(result,"info",executeAt.value.trim() ? "Workflow queued immediately. Waiting until the configured time, then CloudHub 2.0 control will execute…" : "Workflow dispatched. Waiting for CloudHub 2.0 control execution and final API statistics…");
       const runInfo=await waitForRun(owner,name,environment.value,startedAt);
       lastRunId=runInfo.id;
       const completed=await waitForCompletion(owner,name,runInfo);
