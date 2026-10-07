@@ -6,6 +6,7 @@
   const analyticsStatus=$("analytics-status"), analyticsBody=$("analytics-body");
   let scope="application";
   let lastRunId=null;
+  let latestAnalytics=null;
 
   function setStatus(el,type,message,html=false){
     el.className="status "+type;
@@ -28,6 +29,8 @@
   action.addEventListener("change",syncConfirmation);
   environment.addEventListener("change",syncEnvironment);
   $("refresh-analytics").addEventListener("click",()=>refreshAnalytics());
+  $("api-search").addEventListener("input",renderApiRows);
+  $("api-filter").addEventListener("change",renderApiRows);
   syncConfirmation(); syncScope(); syncEnvironment();
 
   async function github(path,options={}){
@@ -56,6 +59,7 @@
   }
 
   function renderAnalytics(data){
+    latestAnalytics=data;
     const s=data.summary||{};
     $("m-total").textContent=s.total??"—";
     $("m-success").textContent=s.success??"—";
@@ -63,11 +67,9 @@
     $("m-running").textContent=s.running??"—";
     $("m-stopped").textContent=s.stopped??"—";
     $("m-unknown").textContent=s.unknown??"—";
-    const rows=data.applications||[];
-    analyticsBody.innerHTML=rows.length
-      ? rows.map(x=>'<tr><td>'+escapeHtml(x.name)+'</td><td><span class="pill">'+escapeHtml(x.status)+'</span></td><td><span class="pill">'+escapeHtml(x.result)+'</span></td></tr>').join("")
-      : '<tr><td colspan="3">No application results were returned.</td></tr>';
-    setStatus(analyticsStatus,"ok",
+    renderApiRows();
+    setStatus(analyticsStatus,
+      "ok",
       'Latest result: <b>'+escapeHtml(String(data.environment||"").toUpperCase())+'</b> / <b>'+escapeHtml(String(data.action||"").toUpperCase())+'</b> • Run #'+escapeHtml(String(data.runNumber||"—"))+' • '+escapeHtml(String(data.completedAt||"")).replace("T"," ").replace("Z"," UTC"),
       true
     );
@@ -76,6 +78,26 @@
   function escapeHtml(value){
     return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   }
+  function renderApiRows(){
+    const rows=(latestAnalytics&&latestAnalytics.applications)||[];
+    const q=(($("api-search")&&$("api-search").value)||"").trim().toLowerCase();
+    const filter=(($("api-filter")&&$("api-filter").value)||"all");
+    const visible=rows.filter(x=>{
+      const text=(String(x.name||"")+" "+String(x.id||"")+" "+String(x.status||"")+" "+String(x.result||"")).toLowerCase();
+      if(q && !text.includes(q)) return false;
+      if(filter==="success" && String(x.result).toUpperCase()!=="SUCCESS") return false;
+      if(filter==="failed" && String(x.result).toUpperCase()!=="FAILED") return false;
+      if(filter==="running" && !String(x.status).toUpperCase().includes("RUNNING")) return false;
+      if(filter==="stopped" && !["STOPPED","TERMINATED","DELETED"].includes(String(x.status).toUpperCase())) return false;
+      if(filter==="unknown" && String(x.status).toUpperCase()!=="UNKNOWN") return false;
+      return true;
+    });
+    $("api-count").textContent=visible.length+" of "+rows.length+" APIs";
+    analyticsBody.innerHTML=visible.length
+      ? visible.map(x=>'<tr><td><strong>'+escapeHtml(x.name)+'</strong></td><td><code>'+escapeHtml(x.id)+'</code></td><td><span class="pill">'+escapeHtml(x.status)+'</span></td><td><span class="pill">'+escapeHtml(x.result)+'</span></td></tr>').join("")
+      : '<tr><td colspan="4">No APIs match the current filter.</td></tr>';
+  }
+
 
   async function fetchAnalytics(env, expectedRunId=null){
     const [owner,name]=parseRepo(repo.value);
