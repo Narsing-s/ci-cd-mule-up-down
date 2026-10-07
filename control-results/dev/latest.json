@@ -1,13 +1,13 @@
 {
-  "runId": 37578363280,
-  "runNumber": 63,
+  "runId": 37611049913,
+  "runNumber": 65,
   "repository": "Narsing-s/ci-cd-mule-up-down",
   "environment": "dev",
   "requestedEnvironment": "dev",
   "action": "start",
   "scope": "bulk",
   "application": "",
-  "completedAt": "2026-10-07T05:54:18.464963+00:00",
+  "completedAt": "2026-10-07T11:00:20.333352+00:00",
   "summary": {
     "total": 4,
     "success": 4,
@@ -19,14 +19,14 @@
   },
   "applications": [
     {
-      "name": "monthly-bank-satement-generate-api",
-      "id": "97b57bfa-4f64-4d0a-8ac9-5ac134e93469",
+      "name": "integration-with-ai-api",
+      "id": "fab6223a-3d0d-4d5b-8e8e-b87a116bae77",
       "status": "STARTED",
       "result": "SUCCESS"
     },
     {
-      "name": "integration-with-ai-api",
-      "id": "fab6223a-3d0d-4d5b-8e8e-b87a116bae77",
+      "name": "dream-bank-sapi",
+      "id": "a292a0e1-d354-4845-bdb9-13bbedac3c91",
       "status": "STARTED",
       "result": "SUCCESS"
     },
@@ -37,8 +37,8 @@
       "result": "SUCCESS"
     },
     {
-      "name": "dream-bank-sapi",
-      "id": "a292a0e1-d354-4845-bdb9-13bbedac3c91",
+      "name": "monthly-bank-satement-generate-api",
+      "id": "97b57bfa-4f64-4d0a-8ac9-5ac134e93469",
       "status": "STARTED",
       "result": "SUCCESS"
     }
